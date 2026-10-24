@@ -25,7 +25,8 @@ export default function App() {
         <span
           style={{
             position: 'absolute',
-            top: 8,
+            // Sits just above the tideline: the ball grid now fills the whole zone.
+            top: -26,
             left: 12,
             color: '#e6dcc4',
             font: '14px system-ui, sans-serif',

@@ -272,7 +272,7 @@ export default function Camera() {
       {trackingError ? (
         <div style={{ ...overlayStyle, top: 24 }}>{trackingError}</div>
       ) : (
-        !handVisible && <div style={{ ...overlayStyle, bottom: 24 }}>Show your hand to the camera</div>
+        !handVisible && <div style={{ ...overlayStyle, top: 24 }}>Show your hand to the camera</div>
       )}
     </div>
   )
