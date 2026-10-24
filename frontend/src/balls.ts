@@ -1,8 +1,10 @@
+import { LANES, tryLoadCannon } from './cannons'
+
 export const BALL_VALUES = [1, 2, 3, 4, 5]
 
 // Invisible grid in the hand zone (bottom third of the screen): 2 rows x 10 columns = 20 slots.
 // Resting balls always sit in a slot, so any ball is easy to pick out.
-const COLS = 10
+const COLS = LANES
 const ROWS = 2
 export const MAX_BALLS = COLS * ROWS
 // Ball radius as a fraction of the smaller cell dimension: sized so all 20 fit with a small gap.
@@ -118,11 +120,16 @@ export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: n
       }
     }
 
-    for (const ball of balls) {
+    // Copy: a ball dropped on a cannon is removed from the array mid-loop.
+    for (const ball of [...balls]) {
       if (ball.heldBy !== key) continue
       if (grabbing) {
         ball.x = Math.min(Math.max(hand.point.x / cw, EDGE_MARGIN), 1 - EDGE_MARGIN)
         ball.y = Math.min(Math.max(hand.point.y / ch, EDGE_MARGIN), 1 - EDGE_MARGIN)
+      } else if (tryLoadCannon(ball.value, ball.x, ball.y, cw, ch)) {
+        // The cannon swallows the ball; it reappears as the shot a moment later.
+        balls.splice(balls.indexOf(ball), 1)
+        notifyBalls()
       } else {
         ball.heldBy = null
         snapToGrid(ball, cw, ch)

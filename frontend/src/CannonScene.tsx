@@ -1,0 +1,278 @@
+import { useMemo, useRef, useSyncExternalStore } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import { ballRadiusPx, balls } from './balls'
+import {
+  EXPLOSION_TIME,
+  FIRE_DELAY,
+  LANES,
+  cannonLayout,
+  cannons,
+  getShotsVersion,
+  shotProgress,
+  shots,
+  stepCannons,
+  subscribeShots,
+} from './cannons'
+import { getIronBase, ironTextureFor } from './ironTextures'
+
+// Local cannon units: 1 = one grid column. The group is scaled to the tile size every frame, so
+// the cannons always fit their column. The barrel points down the lane (-y); its opening is about
+// 0.45 below the tile center, which is where cannonLayout.muzzleY puts the explosion and shots.
+
+const IRON = { color: '#3b3f44', metalness: 0.8, roughness: 0.42 } as const
+const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
+
+const SPARKS = 18
+const SMOKE = 8
+
+function CannonUnit({ lane }: { lane: number }) {
+  const { viewport, size } = useThree()
+  const group = useRef<THREE.Group>(null)
+  const barrel = useRef<THREE.Group>(null)
+  const rim = useRef<THREE.MeshBasicMaterial>(null)
+  const lamp = useRef<THREE.MeshStandardMaterial>(null)
+  const glow = useRef<THREE.Mesh>(null)
+  const { bump } = getIronBase()
+
+  useFrame(() => {
+    const g = group.current
+    const b = barrel.current
+    if (!g || !b) return
+    const layout = cannonLayout(size.width, size.height)
+    const k = viewport.height / size.height
+    g.position.set((layout.laneX(lane) - 0.5) * viewport.width, (0.5 - layout.centerY) * viewport.height, 0)
+    g.scale.setScalar(layout.cell * k)
+
+    const cannon = cannons[lane]
+    const loaded = cannon.value !== null
+    const p = loaded ? Math.min(cannon.charge / FIRE_DELAY, 1) : 0
+
+    // Recoil: the barrel kicks back up the lane for a moment after firing.
+    b.position.y = 0.1 * Math.max(0, 1 - cannon.sinceFire / 0.25) ** 2
+
+    // The lamp blinks faster as the shot gets close.
+    const blink = loaded ? 0.55 + 0.45 * Math.sin(cannon.charge * (8 + 22 * p)) : 0
+    if (lamp.current) {
+      lamp.current.emissiveIntensity = loaded ? 0.6 + 2.6 * blink * (0.4 + 0.6 * p) : 0
+      lamp.current.emissive.set(p > 0.7 ? '#ff4a1c' : '#ffb02e')
+    }
+    if (glow.current) {
+      const material = glow.current.material as THREE.MeshBasicMaterial
+      material.opacity = loaded ? 0.15 + 0.5 * blink : 0
+      glow.current.scale.setScalar(1 + 1.2 * p)
+    }
+
+    // Tile rim: bright while a held ball is over it, pulsing while charging.
+    if (rim.current) {
+      rim.current.opacity = cannon.hover ? 0.85 : loaded ? 0.25 + 0.4 * blink : 0.14
+      rim.current.color.set(cannon.hover ? '#7dffb0' : '#ffb02e')
+    }
+  })
+
+  return (
+    <group ref={group}>
+      {/* Tile: dark plate with a glowing outline behind it */}
+      <mesh position={[0, 0, -0.2]}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial ref={rim} color="#ffb02e" transparent opacity={0.14} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0, -0.14]}>
+        <boxGeometry args={[0.92, 0.92, 0.08]} />
+        <meshStandardMaterial {...DARK_IRON} bumpMap={bump} bumpScale={1.5} />
+      </mesh>
+
+      <group ref={barrel}>
+        <mesh position={[0, 0.2, 0]}>
+          <sphereGeometry args={[0.24, 32, 32]} />
+          <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
+        </mesh>
+        <mesh position={[0, -0.11, 0]}>
+          <cylinderGeometry args={[0.2, 0.15, 0.62, 32]} />
+          <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
+        </mesh>
+        <mesh position={[0, 0.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.185, 0.03, 12, 32]} />
+          <meshStandardMaterial {...DARK_IRON} />
+        </mesh>
+        <mesh position={[0, -0.43, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.16, 0.045, 12, 32]} />
+          <meshStandardMaterial {...DARK_IRON} />
+        </mesh>
+        {/* Dark bore inside the muzzle */}
+        <mesh position={[0, -0.425, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.12, 24]} />
+          <meshBasicMaterial color="#050505" />
+        </mesh>
+      </group>
+
+      {/* Charge lamp on the shoulder of the tile */}
+      <mesh position={[0.33, 0.33, 0.1]}>
+        <sphereGeometry args={[0.075, 16, 16]} />
+        <meshStandardMaterial ref={lamp} color="#3a2a14" emissive="#ffb02e" emissiveIntensity={0} />
+      </mesh>
+      <mesh ref={glow} position={[0.33, 0.33, 0.12]}>
+        <sphereGeometry args={[0.17, 16, 16]} />
+        <meshBasicMaterial color="#ffb02e" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+// Muzzle blast: a bright flash, a burst of sparks and a puff of smoke, all driven by how long ago
+// the cannon last fired. World-space (not scaled with the cannon), sized from the tile instead.
+function Explosion({ lane }: { lane: number }) {
+  const { viewport, size } = useThree()
+  const group = useRef<THREE.Group>(null)
+  const flash = useRef<THREE.Mesh>(null)
+  const sparks = useRef<THREE.Points>(null)
+  const smoke = useRef<THREE.Points>(null)
+
+  const { sparkGeometry, smokeGeometry, sparkVel, smokeVel } = useMemo(() => {
+    // Directions fan out mostly down the lane, with a few spraying sideways.
+    const velocities = (n: number, minSpeed: number, maxSpeed: number, spread: number) =>
+      Array.from({ length: n }, () => {
+        const angle = -Math.PI / 2 + (Math.random() - 0.5) * spread
+        const speed = minSpeed + Math.random() * (maxSpeed - minSpeed)
+        return [Math.cos(angle) * speed, Math.sin(angle) * speed] as const
+      })
+    const make = (n: number) => {
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3))
+      return geometry
+    }
+    return {
+      sparkGeometry: make(SPARKS),
+      smokeGeometry: make(SMOKE),
+      sparkVel: velocities(SPARKS, 1.6, 4.2, 2.4),
+      smokeVel: velocities(SMOKE, 0.3, 1.1, 1.6),
+    }
+  }, [])
+
+  useFrame(() => {
+    const g = group.current
+    if (!g) return
+    const t = cannons[lane].sinceFire
+    g.visible = t < EXPLOSION_TIME
+    if (!g.visible) return
+
+    const layout = cannonLayout(size.width, size.height)
+    const unit = layout.cell * (viewport.height / size.height) // one cell in world units
+    g.position.set((layout.laneX(lane) - 0.5) * viewport.width, (0.5 - layout.muzzleY) * viewport.height, 0.4)
+
+    const life = t / EXPLOSION_TIME
+    if (flash.current) {
+      const fast = Math.min(t / 0.28, 1)
+      flash.current.visible = fast < 1
+      flash.current.scale.setScalar(unit * (0.25 + 0.95 * Math.sqrt(fast)))
+      ;(flash.current.material as THREE.MeshBasicMaterial).opacity = 1 - fast
+    }
+
+    const place = (points: THREE.Points | null, velocities: readonly (readonly [number, number])[], drag: number) => {
+      if (!points) return
+      const attr = points.geometry.getAttribute('position') as THREE.BufferAttribute
+      // Distance covered with exponential drag: v * (1 - e^(-drag t)) / drag.
+      const travel = (1 - Math.exp(-drag * t)) / drag
+      velocities.forEach(([vx, vy], i) => attr.setXYZ(i, vx * travel * unit, vy * travel * unit, 0))
+      attr.needsUpdate = true
+    }
+    place(sparks.current, sparkVel, 4)
+    place(smoke.current, smokeVel, 2.5)
+
+    if (sparks.current) {
+      const material = sparks.current.material as THREE.PointsMaterial
+      material.size = unit * 0.11 * (1 - 0.6 * life)
+      material.opacity = Math.max(0, 1 - life * life * 1.4)
+    }
+    if (smoke.current) {
+      const material = smoke.current.material as THREE.PointsMaterial
+      material.size = unit * (0.25 + 0.5 * life)
+      material.opacity = 0.4 * (1 - life)
+    }
+  })
+
+  return (
+    <group ref={group} visible={false}>
+      <mesh ref={flash}>
+        <sphereGeometry args={[0.5, 24, 24]} />
+        <meshBasicMaterial color="#ffd27a" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <points ref={smoke} geometry={smokeGeometry} frustumCulled={false}>
+        <pointsMaterial color="#8d969b" transparent depthWrite={false} sizeAttenuation />
+      </points>
+      <points ref={sparks} geometry={sparkGeometry} frustumCulled={false}>
+        <pointsMaterial color="#ffae3d" transparent blending={THREE.AdditiveBlending} depthWrite={false} sizeAttenuation />
+      </points>
+    </group>
+  )
+}
+
+// Balls in flight down their lanes. They start small at the muzzle and grow as they travel, so
+// they look like they are coming toward the player.
+function Shots() {
+  const { viewport, size } = useThree()
+  const { bump } = getIronBase()
+  useSyncExternalStore(subscribeShots, getShotsVersion)
+  const radius = (ballRadiusPx(size.width, size.height) / size.height) * viewport.height
+  const meshes = useMemo(() => new Map<number, THREE.Mesh>(), [])
+  const materials = useMemo(() => new Map<number, THREE.MeshStandardMaterial>(), [])
+
+  useFrame(() => {
+    const { laneX } = cannonLayout(size.width, size.height)
+    for (const shot of shots) {
+      const mesh = meshes.get(shot.id)
+      const material = materials.get(shot.id)
+      if (!mesh || !material) continue
+      const p = shotProgress(shot)
+      mesh.position.set((laneX(shot.lane) - 0.5) * viewport.width, (0.5 - shot.y) * viewport.height, 0.3)
+      mesh.scale.setScalar(0.45 + 0.55 * p)
+      material.emissiveIntensity = 0.7 * (1 - p) + 0.15
+    }
+  })
+
+  const track = <T,>(store: Map<number, T>, id: number) => (item: T | null) => {
+    if (item) store.set(id, item)
+    else store.delete(id)
+  }
+
+  return (
+    <>
+      {shots.map((shot) => (
+        <mesh key={shot.id} ref={track(meshes, shot.id)}>
+          <sphereGeometry args={[radius, 48, 48]} />
+          <meshStandardMaterial
+            ref={track(materials, shot.id)}
+            map={ironTextureFor(shot.value)}
+            bumpMap={bump}
+            bumpScale={2}
+            metalness={0.7}
+            roughness={0.45}
+            emissive="#ff9a2a"
+            emissiveIntensity={0.85}
+          />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+export default function Cannons() {
+  const { size } = useThree()
+
+  useFrame((_, delta) => {
+    const held = balls.filter((b) => b.heldBy !== null)
+    stepCannons(delta, held, size.width, size.height)
+  })
+
+  return (
+    <>
+      {Array.from({ length: LANES }, (_, lane) => (
+        <CannonUnit key={`cannon-${lane}`} lane={lane} />
+      ))}
+      {Array.from({ length: LANES }, (_, lane) => (
+        <Explosion key={`boom-${lane}`} lane={lane} />
+      ))}
+      <Shots />
+    </>
+  )
+}
