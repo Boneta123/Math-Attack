@@ -43,6 +43,11 @@ export type HandAnchorStore = {
   timestamp: number
 }
 
+// Buffer for deliberate actions: a fist, a pinch or an open hand must be held this long, without a
+// break, before it counts. Keeps brief gesture flicker and tracking dropouts from grabbing,
+// dropping or switching anything. Time based, so it behaves the same at any frame rate.
+export const ACTION_BUFFER_MS = 100
+
 const THUMB_TIP = 4
 const INDEX_TIP = 8
 const MIDDLE_TIP = 12

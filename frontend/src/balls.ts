@@ -1,4 +1,5 @@
 import { BALL_COLS, BALL_ROW_Y, tryLoadCannon } from './cannons'
+import { ACTION_BUFFER_MS } from './handTracking'
 import { applyOperation, getOperation } from './operations'
 
 // Only 1, 2 and 3 ever spawn, cycling in that order; every larger number is made by combining them.
@@ -81,7 +82,11 @@ export type HandInput = {
   point: { x: number; y: number } // the pinch point, in screen pixels
 }
 
-const wasGrabbing: Record<HandKey, boolean> = { left: false, right: false }
+// Per hand: when the pinch started closing over a ball (null = not timing), when it started being
+// open while holding a ball, and whether it must open before it may grab again (after a merge frees it).
+const closedSince: Record<HandKey, number | null> = { left: null, right: null }
+const openSince: Record<HandKey, number | null> = { left: null, right: null }
+const mustReopen: Record<HandKey, boolean> = { left: false, right: false }
 
 // Resting balls form a queue packed against the right end of the row: the oldest ball is the
 // rightmost, the newest (or just-released) ball the leftmost. Whenever a ball enters, leaves or is
@@ -102,52 +107,68 @@ function sendToEntry(ball: Ball) {
   packRight()
 }
 
-// Pick up when the fingers pinch together over a ball, follow the pinch point while they stay
-// together, snap into the nearest free slot when the fingers separate or the hand disappears.
-// When both hands hold a ball and the two touch, they merge into one ball (the sum) that
+// Pick up once the fingers have stayed pinched over a ball for ACTION_BUFFER_MS, follow the pinch
+// point while they stay together, and release (or load a cannon) once they have stayed open, or the
+// hand untracked, for ACTION_BUFFER_MS. Until then the ball stays put at the last pinch point, so
+// flicker and brief tracking drops cannot grab or drop anything.
+// When both hands hold a ball and the two touch, they merge into one ball (the result) that
 // stays in the right hand.
-export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: number) {
+export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: number, now = performance.now()) {
   const radius = ballRadiusPx(cw, ch)
 
   for (const key of ['left', 'right'] as const) {
     const hand = hands[key]
     const grabbing = hand.present && hand.pinch
+    if (!grabbing) mustReopen[key] = false
+    const held = balls.find((b) => b.heldBy === key)
 
-    if (grabbing && !wasGrabbing[key] && !balls.some((b) => b.heldBy === key)) {
-      let best: Ball | null = null
-      let bestDist = radius * GRAB_REACH
-      for (const ball of balls) {
-        if (ball.heldBy) continue
-        const d = Math.hypot(hand.point.x - ball.x * cw, hand.point.y - ball.y * ch)
-        if (d <= bestDist) {
-          best = ball
-          bestDist = d
+    if (!held) {
+      openSince[key] = null
+      // The ball (if any) the pinch is over, nearest first.
+      let target: Ball | null = null
+      if (grabbing && !mustReopen[key]) {
+        let bestDist = radius * GRAB_REACH
+        for (const ball of balls) {
+          if (ball.heldBy) continue
+          const d = Math.hypot(hand.point.x - ball.x * cw, hand.point.y - ball.y * ch)
+          if (d <= bestDist) {
+            target = ball
+            bestDist = d
+          }
         }
       }
-      if (best) {
-        best.heldBy = key
-        best.slot = null // frees the slot; the balls to its left slide right to fill it
-        packRight()
-      }
-    }
-
-    // Copy: a ball dropped on a cannon is removed from the array mid-loop.
-    for (const ball of [...balls]) {
-      if (ball.heldBy !== key) continue
-      if (grabbing) {
-        ball.x = Math.min(Math.max(hand.point.x / cw, EDGE_MARGIN), 1 - EDGE_MARGIN)
-        ball.y = Math.min(Math.max(hand.point.y / ch, EDGE_MARGIN), 1 - EDGE_MARGIN)
-      } else if (tryLoadCannon(ball.value, ball.x, ball.y, cw, ch)) {
-        // The cannon swallows the ball; it reappears as the shot a moment later.
-        balls.splice(balls.indexOf(ball), 1)
-        packRight()
-        notifyBalls()
+      if (!target) {
+        closedSince[key] = null
       } else {
-        sendToEntry(ball)
+        closedSince[key] ??= now
+        if (now - closedSince[key]! >= ACTION_BUFFER_MS) {
+          target.heldBy = key
+          target.slot = null // frees the slot; the balls to its left slide right to fill it
+          packRight()
+          closedSince[key] = null
+        }
       }
+      continue
     }
 
-    wasGrabbing[key] = grabbing
+    closedSince[key] = null
+    if (grabbing) {
+      openSince[key] = null
+      held.x = Math.min(Math.max(hand.point.x / cw, EDGE_MARGIN), 1 - EDGE_MARGIN)
+      held.y = Math.min(Math.max(hand.point.y / ch, EDGE_MARGIN), 1 - EDGE_MARGIN)
+      continue
+    }
+    openSince[key] ??= now
+    if (now - openSince[key]! < ACTION_BUFFER_MS) continue
+    openSince[key] = null
+    if (tryLoadCannon(held.value, held.x, held.y, cw, ch)) {
+      // The cannon swallows the ball; it reappears as the shot a moment later.
+      balls.splice(balls.indexOf(held), 1)
+      packRight()
+      notifyBalls()
+    } else {
+      sendToEntry(held)
+    }
   }
 
   mergeHeldBalls(cw, ch, radius)
@@ -169,8 +190,9 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   balls.splice(balls.indexOf(b), 1)
   balls.push({ id: nextBallId++, value, x: b.x, y: b.y, heldBy: 'right', slot: null })
 
-  // The left fingers are still pinched, so wasGrabbing.left stays true and it cannot re-grab
-  // until they separate and pinch again.
+  // The left fingers are still pinched, so the left hand must open before it may grab again.
+  mustReopen.left = true
+  closedSince.left = null
   notifyBalls()
 }
 
