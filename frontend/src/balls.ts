@@ -1,14 +1,14 @@
-import { BALL_ROW_Y, LANES, tryLoadCannon } from './cannons'
+import { BALL_COLS, BALL_ROW_Y, tryLoadCannon } from './cannons'
 
 // Only 1, 2 and 3 ever spawn; every larger number is made by combining them.
 export const BALL_VALUES = [1, 2, 3]
 
-// Invisible single row in the hand zone (bottom 45% of the screen, starting at the shoreline): 1 row x 10 columns = 10
-// slots, one under each cannon. Resting balls always sit in a slot, so any ball is easy to pick out.
-const COLS = LANES
+// Invisible single row in the hand zone (bottom 45% of the screen, starting at the shoreline): 1 row x 6 columns = 6
+// slots, with a cannon above each gap between neighbouring slots. Resting balls always sit in a slot, so any ball is easy to pick out.
+const COLS = BALL_COLS
 const ROWS = 1
 export const MAX_BALLS = COLS * ROWS
-// Ball radius as a fraction of the smaller cell dimension: sized so all 10 fit with a small gap.
+// Ball radius as a fraction of the smaller cell dimension: sized so all 6 fit with a small gap.
 const BALL_FILL = 0.44
 // Seconds between new balls funnelling in from the sides (while there is room).
 const SPAWN_INTERVAL = 3
@@ -65,7 +65,7 @@ function notifyBalls() {
   listeners.forEach((listener) => listener())
 }
 
-// Ball radius in screen pixels for a game area of cw x ch. Fixed so that 10 balls always fit.
+// Ball radius in screen pixels for a game area of cw x ch. Fixed so that 6 balls always fit.
 export const ballRadiusPx = (cw: number, ch: number) =>
   BALL_FILL * Math.min(cw / COLS, ch / 3 / ROWS)
 

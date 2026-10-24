@@ -1,9 +1,11 @@
-// One cannon directly above each ball in the single row (a lane per column). Drop a ball on a
-// cannon tile and it is swallowed, the cannon's lamp charges for FIRE_DELAY seconds, then it fires
+// Five cannons, each sitting in the gap between two neighbouring balls of the single ball row (a
+// lane per cannon). Drop a ball on a cannon tile and it is swallowed, the cannon's lamp charges for FIRE_DELAY seconds, then it fires
 // the ball up the lane, away from the player.
 
-// Same as the ball row's column count, so every cannon sits above one ball slot.
-export const LANES = 10
+// Number of ball columns in the ball row; one more than the cannons, so there is a cannon between
+// every pair of neighbouring ball columns.
+export const BALL_COLS = 6
+export const LANES = BALL_COLS - 1
 // Normalized screen y of the center of the ball row (the cannons are placed relative to it).
 export const BALL_ROW_Y = 0.72
 // Seconds from placing the ball on the tile to the shot leaving the barrel.
@@ -66,11 +68,11 @@ export function notifyShots() {
 }
 
 // Cannon geometry for a game area of cw x ch pixels. Each tile is one grid column wide and square,
-// one cell above the ball row; each barrel points along its lane toward the far end of the water.
+// one cell above the ball row and centered on the boundary between two ball columns; each barrel points along its lane toward the far end of the water.
 export function cannonLayout(cw: number, ch: number) {
-  const cell = cw / LANES
+  const cell = cw / BALL_COLS
   const centerY = BALL_ROW_Y - cell / ch // normalized y of the tile center
-  const laneX = (lane: number) => (lane + 0.5) / LANES // normalized x of a lane (tile center)
+  const laneX = (lane: number) => (lane + 1) / BALL_COLS // normalized x of a lane (tile center)
   const laneEndX = (lane: number) => 0.5 + (laneX(lane) - 0.5) * LANE_CONVERGE
   // Angle in radians from straight up, positive = pointing right on screen. Computed in pixels so
   // the barrel and the shot agree on the direction whatever the aspect ratio.
@@ -90,7 +92,7 @@ export function cannonLayout(cw: number, ch: number) {
 function cannonUnder(nx: number, ny: number, cw: number, ch: number): number | null {
   const { cell, centerY } = cannonLayout(cw, ch)
   if (Math.abs(ny - centerY) * ch > cell * 0.65) return null
-  const lane = Math.floor(nx * LANES)
+  const lane = Math.floor(nx * BALL_COLS - 0.5)
   if (lane < 0 || lane >= LANES) return null
   return cannons[lane].value === null ? lane : null
 }
