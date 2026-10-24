@@ -1,32 +1,68 @@
 export const BALL_VALUES = [1, 2, 3, 4, 5]
 
-// Ball radius relative to the original layout (slightly smaller than before).
-const BALL_SCALE = 0.85
+// Invisible grid in the hand zone (bottom third of the screen): 2 rows x 10 columns = 20 slots.
+// Resting balls always sit in a slot, so any ball is easy to pick out.
+const COLS = 10
+const ROWS = 2
+export const MAX_BALLS = COLS * ROWS
+// Ball radius as a fraction of the smaller cell dimension: sized so all 20 fit with a small gap.
+const BALL_FILL = 0.44
+// Seconds between new balls funnelling in from the sides (while there is room).
+const SPAWN_INTERVAL = 3
+// How quickly balls glide to their slot (higher = snappier).
+const SETTLE_RATE = 12
+
 // A fist closing this many radii from a ball's center still picks it up.
 const GRAB_REACH = 1.25
 const EDGE_MARGIN = 0.03
+// Two held balls merge once their centers are this many radii apart or closer (touching).
+const MERGE_DISTANCE = 2
 
 export type HandKey = 'left' | 'right'
+type Side = 'left' | 'right'
 
 export type Ball = {
+  id: number
   value: number
   // Center in normalized screen space (0..1 of the game area). Plain mutable data, read every frame.
   x: number
   y: number
   heldBy: HandKey | null
+  // Grid slot (row * COLS + col) while resting; null while held. Resting balls glide to their slot.
+  slot: number | null
 }
 
-// The hand zone is the bottom third of the screen, so the rack starts at y = 5/6.
-export const balls: Ball[] = BALL_VALUES.map((value, i) => ({
-  value,
-  x: (i + 1) / (BALL_VALUES.length + 1),
-  y: 5 / 6,
-  heldBy: null,
-}))
+// Center of a grid slot in normalized screen space. The hand zone is the bottom third.
+const slotCenter = (slot: number) => ({
+  x: ((slot % COLS) + 0.5) / COLS,
+  y: 2 / 3 + (Math.floor(slot / COLS) + 0.5) / (ROWS * 3),
+})
 
-// Ball radius in screen pixels for a game area of cw x ch.
+// Mutated in place (merging and spawning add and remove balls), never reassigned.
+// The first rack sits in the middle of the bottom row.
+export const balls: Ball[] = BALL_VALUES.map((value, i) => {
+  const slot = (ROWS - 1) * COLS + 2 + i
+  return { id: i + 1, value, ...slotCenter(slot), heldBy: null, slot }
+})
+
+let nextBallId = BALL_VALUES.length + 1
+
+// Adding or removing balls changes what the renderer draws, so it subscribes to this (not per frame).
+let ballsVersion = 0
+const listeners = new Set<() => void>()
+export const subscribeBalls = (listener: () => void) => {
+  listeners.add(listener)
+  return () => void listeners.delete(listener)
+}
+export const getBallsVersion = () => ballsVersion
+function notifyBalls() {
+  ballsVersion++
+  listeners.forEach((listener) => listener())
+}
+
+// Ball radius in screen pixels for a game area of cw x ch. Fixed so that 20 balls always fit.
 export const ballRadiusPx = (cw: number, ch: number) =>
-  Math.min((ch / 3) * 0.3, cw / (BALL_VALUES.length * 2.6)) * BALL_SCALE
+  BALL_FILL * Math.min(cw / COLS, ch / 3 / ROWS)
 
 export type HandInput = {
   present: boolean
@@ -36,8 +72,26 @@ export type HandInput = {
 
 const wasGrabbing: Record<HandKey, boolean> = { left: false, right: false }
 
+// Put a released ball into the nearest free grid slot (it glides there).
+function snapToGrid(ball: Ball, cw: number, ch: number) {
+  const taken = new Set(balls.map((b) => b.slot))
+  let best: number | null = null
+  let bestDist = Infinity
+  for (let slot = 0; slot < MAX_BALLS; slot++) {
+    if (taken.has(slot)) continue
+    const c = slotCenter(slot)
+    const d = Math.hypot((c.x - ball.x) * cw, (c.y - ball.y) * ch)
+    if (d < bestDist) {
+      best = slot
+      bestDist = d
+    }
+  }
+  ball.slot = best
+}
+
 // Pick up on open -> fist over a ball, follow the palm while the fist stays closed,
-// drop in place when the hand opens or disappears.
+// snap into the nearest free slot when the hand opens or disappears. When both hands hold a
+// ball and the two touch, they merge into one ball (the sum) that stays in the right hand.
 export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: number) {
   const radius = ballRadiusPx(cw, ch)
 
@@ -56,7 +110,10 @@ export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: n
           bestDist = d
         }
       }
-      if (best) best.heldBy = key
+      if (best) {
+        best.heldBy = key
+        best.slot = null // frees the slot; other balls may slide into it
+      }
     }
 
     for (const ball of balls) {
@@ -66,9 +123,77 @@ export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: n
         ball.y = Math.min(Math.max(hand.palm.y / ch, EDGE_MARGIN), 1 - EDGE_MARGIN)
       } else {
         ball.heldBy = null
+        snapToGrid(ball, cw, ch)
       }
     }
 
     wasGrabbing[key] = grabbing
+  }
+
+  mergeHeldBalls(cw, ch, radius)
+}
+
+function mergeHeldBalls(cw: number, ch: number, radius: number) {
+  const a = balls.find((b) => b.heldBy === 'left')
+  const b = balls.find((b) => b.heldBy === 'right')
+  if (!a || !b) return
+  if (Math.hypot((a.x - b.x) * cw, (a.y - b.y) * ch) > radius * MERGE_DISTANCE) return
+
+  // The new ball takes the right ball's spot, which is already at the right palm.
+  balls.splice(balls.indexOf(a), 1)
+  balls.splice(balls.indexOf(b), 1)
+  balls.push({ id: nextBallId++, value: a.value + b.value, x: b.x, y: b.y, heldBy: 'right', slot: null })
+
+  // The left fist is still closed, so wasGrabbing.left stays true and it cannot re-grab
+  // until it opens and closes again.
+  notifyBalls()
+}
+
+// Bring a new ball in from the left or right edge. It enters the end slot of a lane (row); if
+// that slot is taken, the run of balls next to it slides one slot inward to make room.
+// Returns false when no lane has a free slot.
+function spawnBall(side: Side): boolean {
+  const lanes = Array.from({ length: ROWS }, (_, row) => ({
+    row,
+    cells: Array.from({ length: COLS }, (_, col) => balls.find((b) => b.slot === row * COLS + col) ?? null),
+  }))
+    .filter((lane) => lane.cells.includes(null))
+    // emptiest lane first; on a tie, the lower row
+    .sort((p, q) => p.cells.filter(Boolean).length - q.cells.filter(Boolean).length || q.row - p.row)
+  const lane = lanes[0]
+  if (!lane) return false
+
+  // Column order walking inward from the entry side.
+  const inward = Array.from({ length: COLS }, (_, i) => (side === 'left' ? i : COLS - 1 - i))
+  const free = inward.findIndex((col) => lane.cells[col] === null)
+  for (let k = free; k > 0; k--) {
+    lane.cells[inward[k - 1]]!.slot = lane.row * COLS + inward[k]
+  }
+
+  const slot = lane.row * COLS + inward[0]
+  const value = BALL_VALUES[Math.floor(Math.random() * BALL_VALUES.length)]
+  // Starts just off the screen edge, level with its row, then glides in.
+  balls.push({ id: nextBallId++, value, x: side === 'left' ? -0.06 : 1.06, y: slotCenter(slot).y, heldBy: null, slot })
+  return true
+}
+
+let spawnTimer = 0
+let nextSide: Side = 'left'
+
+// Per-frame step (dt in seconds): bring in new balls over time, and glide resting balls to their slots.
+export function stepBalls(dt: number) {
+  spawnTimer = Math.min(spawnTimer + dt, SPAWN_INTERVAL)
+  if (spawnTimer >= SPAWN_INTERVAL && balls.length < MAX_BALLS && spawnBall(nextSide)) {
+    spawnTimer = 0
+    nextSide = nextSide === 'left' ? 'right' : 'left'
+    notifyBalls()
+  }
+
+  const k = 1 - Math.exp(-SETTLE_RATE * Math.min(dt, 0.1))
+  for (const ball of balls) {
+    if (ball.slot === null) continue
+    const target = slotCenter(ball.slot)
+    ball.x += (target.x - ball.x) * k
+    ball.y += (target.y - ball.y) * k
   }
 }

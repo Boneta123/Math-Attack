@@ -1,8 +1,8 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
-import { BALL_VALUES, ballRadiusPx, balls } from './balls'
+import { ballRadiusPx, balls, getBallsVersion, stepBalls, subscribeBalls } from './balls'
 
 const TEX_W = 512
 const TEX_H = 256
@@ -68,7 +68,9 @@ function numberedTexture(base: HTMLCanvasElement, value: number) {
   canvas.height = TEX_H
   const g = canvas.getContext('2d')!
   g.drawImage(base, 0, 0)
-  g.font = 'bold 84px Georgia, serif'
+  // Shrink the font as numbers get longer so two- and three-digit sums still fit.
+  const digits = String(value).length
+  g.font = `bold ${digits === 1 ? 84 : digits === 2 ? 68 : 52}px Georgia, serif`
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   const x = TEX_W * 0.25
@@ -84,38 +86,55 @@ function numberedTexture(base: HTMLCanvasElement, value: number) {
   return map
 }
 
+// One texture per distinct number, created the first time a ball shows it and reused after.
+const textureCache = new Map<number, THREE.CanvasTexture>()
+function textureFor(value: number, base: HTMLCanvasElement) {
+  let texture = textureCache.get(value)
+  if (!texture) {
+    texture = numberedTexture(base, value)
+    textureCache.set(value, texture)
+  }
+  return texture
+}
+
 function Cannonballs() {
   const { viewport, size } = useThree()
-  const { maps, bump } = useMemo(() => {
-    const { colorCanvas, bump } = makeIronBase()
-    return { maps: BALL_VALUES.map((v) => numberedTexture(colorCanvas, v)), bump }
-  }, [])
+  const { colorCanvas, bump } = useMemo(() => makeIronBase(), [])
+  // Re-render only when balls are merged (not every frame).
+  useSyncExternalStore(subscribeBalls, getBallsVersion)
   // Same radius the grab logic uses (screen pixels), converted to world units.
   const radius = (ballRadiusPx(size.width, size.height) / size.height) * viewport.height
-  const meshes = useRef<(THREE.Mesh | null)[]>([])
-  const materials = useRef<(THREE.MeshStandardMaterial | null)[]>([])
+  // Lookups from ball id to its mesh and material, so merging can add and remove balls.
+  const meshes = useMemo(() => new Map<number, THREE.Mesh>(), [])
+  const materials = useMemo(() => new Map<number, THREE.MeshStandardMaterial>(), [])
 
   // Balls live in normalized screen space (balls.ts); mirror that into world space every frame.
-  useFrame(() => {
-    balls.forEach((ball, i) => {
-      const mesh = meshes.current[i]
-      const material = materials.current[i]
-      if (!mesh || !material) return
+  useFrame((_, delta) => {
+    stepBalls(delta)
+    for (const ball of balls) {
+      const mesh = meshes.get(ball.id)
+      const material = materials.get(ball.id)
+      if (!mesh || !material) continue
       mesh.position.set((ball.x - 0.5) * viewport.width, (0.5 - ball.y) * viewport.height, 0)
       const held = ball.heldBy !== null
       mesh.scale.setScalar(held ? 1.08 : 1)
       material.emissiveIntensity = held ? 0.45 : 0
-    })
+    }
   })
+
+  const track = <T,>(store: Map<number, T>, id: number) => (item: T | null) => {
+    if (item) store.set(id, item)
+    else store.delete(id)
+  }
 
   return (
     <>
-      {balls.map((ball, i) => (
-        <mesh key={ball.value} ref={(m) => void (meshes.current[i] = m)}>
+      {balls.map((ball) => (
+        <mesh key={ball.id} ref={track(meshes, ball.id)}>
           <sphereGeometry args={[radius, 48, 48]} />
           <meshStandardMaterial
-            ref={(m) => void (materials.current[i] = m)}
-            map={maps[i]}
+            ref={track(materials, ball.id)}
+            map={textureFor(ball.value, colorCanvas)}
             bumpMap={bump}
             bumpScale={2}
             metalness={0.7}
@@ -132,7 +151,9 @@ function Cannonballs() {
 export default function HandZoneBalls() {
   return (
     <Canvas
-      camera={{ position: [0, 0, 10], fov: 50 }}
+      // Narrow field of view from far away: same framing as before, but balls at the screen edges
+      // are not stretched into ovals.
+      camera={{ position: [0, 0, 35.5], fov: 15 }}
       gl={{ alpha: true }}
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 }}
     >
