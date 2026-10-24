@@ -1,13 +1,14 @@
-import { LANES, tryLoadCannon } from './cannons'
+import { BALL_ROW_Y, LANES, tryLoadCannon } from './cannons'
 
-export const BALL_VALUES = [1, 2, 3, 4, 5]
+// Only 1, 2 and 3 ever spawn; every larger number is made by combining them.
+export const BALL_VALUES = [1, 2, 3]
 
-// Invisible grid in the hand zone (bottom third of the screen): 2 rows x 10 columns = 20 slots.
-// Resting balls always sit in a slot, so any ball is easy to pick out.
+// Invisible single row in the hand zone (bottom third of the screen): 1 row x 10 columns = 10
+// slots, one under each cannon. Resting balls always sit in a slot, so any ball is easy to pick out.
 const COLS = LANES
-const ROWS = 2
+const ROWS = 1
 export const MAX_BALLS = COLS * ROWS
-// Ball radius as a fraction of the smaller cell dimension: sized so all 20 fit with a small gap.
+// Ball radius as a fraction of the smaller cell dimension: sized so all 10 fit with a small gap.
 const BALL_FILL = 0.44
 // Seconds between new balls funnelling in from the sides (while there is room).
 const SPAWN_INTERVAL = 3
@@ -35,16 +36,17 @@ export type Ball = {
   slot: number | null
 }
 
-// Center of a grid slot in normalized screen space. The hand zone is the bottom third.
+// Center of a grid slot in normalized screen space. The single row sits low in the hand zone,
+// with the cannons directly above it.
 const slotCenter = (slot: number) => ({
   x: ((slot % COLS) + 0.5) / COLS,
-  y: 2 / 3 + (Math.floor(slot / COLS) + 0.5) / (ROWS * 3),
+  y: BALL_ROW_Y,
 })
 
 // Mutated in place (merging and spawning add and remove balls), never reassigned.
-// The first rack sits in the middle of the bottom row.
+// The first rack sits in the middle of the row.
 export const balls: Ball[] = BALL_VALUES.map((value, i) => {
-  const slot = (ROWS - 1) * COLS + 2 + i
+  const slot = Math.floor((COLS - BALL_VALUES.length) / 2) + i
   return { id: i + 1, value, ...slotCenter(slot), heldBy: null, slot }
 })
 
@@ -63,7 +65,7 @@ function notifyBalls() {
   listeners.forEach((listener) => listener())
 }
 
-// Ball radius in screen pixels for a game area of cw x ch. Fixed so that 20 balls always fit.
+// Ball radius in screen pixels for a game area of cw x ch. Fixed so that 10 balls always fit.
 export const ballRadiusPx = (cw: number, ch: number) =>
   BALL_FILL * Math.min(cw / COLS, ch / 3 / ROWS)
 

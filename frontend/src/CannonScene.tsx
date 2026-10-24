@@ -17,8 +17,9 @@ import {
 import { getIronBase, ironTextureFor } from './ironTextures'
 
 // Local cannon units: 1 = one grid column. The group is scaled to the tile size every frame, so
-// the cannons always fit their column. The barrel points down the lane (-y); its opening is about
-// 0.45 below the tile center, which is where cannonLayout.muzzleY puts the explosion and shots.
+// the cannons always fit their column. The model is built with the barrel pointing down (-y) and
+// the group is rotated half a turn, so on screen it points up the lane; its opening is about 0.45
+// from the tile center, which is where cannonLayout.muzzleY puts the explosion and shots.
 
 const IRON = { color: '#3b3f44', metalness: 0.8, roughness: 0.42 } as const
 const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
@@ -48,7 +49,7 @@ function CannonUnit({ lane }: { lane: number }) {
     const loaded = cannon.value !== null
     const p = loaded ? Math.min(cannon.charge / FIRE_DELAY, 1) : 0
 
-    // Recoil: the barrel kicks back up the lane for a moment after firing.
+    // Recoil: the barrel kicks back (toward the player) for a moment after firing.
     b.position.y = 0.1 * Math.max(0, 1 - cannon.sinceFire / 0.25) ** 2
 
     // The lamp blinks faster as the shot gets close.
@@ -71,7 +72,7 @@ function CannonUnit({ lane }: { lane: number }) {
   })
 
   return (
-    <group ref={group}>
+    <group ref={group} rotation={[0, 0, Math.PI]}>
       {/* Tile: dark plate with a glowing outline behind it */}
       <mesh position={[0, 0, -0.2]}>
         <planeGeometry args={[1, 1]} />
@@ -129,10 +130,10 @@ function Explosion({ lane }: { lane: number }) {
   const smoke = useRef<THREE.Points>(null)
 
   const { sparkGeometry, smokeGeometry, sparkVel, smokeVel } = useMemo(() => {
-    // Directions fan out mostly down the lane, with a few spraying sideways.
+    // Directions fan out mostly up the lane, with a few spraying sideways.
     const velocities = (n: number, minSpeed: number, maxSpeed: number, spread: number) =>
       Array.from({ length: n }, () => {
-        const angle = -Math.PI / 2 + (Math.random() - 0.5) * spread
+        const angle = Math.PI / 2 + (Math.random() - 0.5) * spread
         const speed = minSpeed + Math.random() * (maxSpeed - minSpeed)
         return [Math.cos(angle) * speed, Math.sin(angle) * speed] as const
       })
@@ -207,8 +208,8 @@ function Explosion({ lane }: { lane: number }) {
   )
 }
 
-// Balls in flight down their lanes. They start small at the muzzle and grow as they travel, so
-// they look like they are coming toward the player.
+// Balls in flight up their lanes. They start full size at the muzzle and shrink as they travel,
+// so they look like they are flying away from the player into the distance.
 function Shots() {
   const { viewport, size } = useThree()
   const { bump } = getIronBase()
@@ -225,7 +226,7 @@ function Shots() {
       if (!mesh || !material) continue
       const p = shotProgress(shot)
       mesh.position.set((laneX(shot.lane) - 0.5) * viewport.width, (0.5 - shot.y) * viewport.height, 0.3)
-      mesh.scale.setScalar(0.45 + 0.55 * p)
+      mesh.scale.setScalar(1 - 0.55 * p)
       material.emissiveIntensity = 0.7 * (1 - p) + 0.15
     }
   })
