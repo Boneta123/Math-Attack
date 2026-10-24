@@ -25,6 +25,9 @@ import { stepShips } from './ships'
 const IRON = { color: '#3b3f44', metalness: 0.8, roughness: 0.42 } as const
 const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
 
+// How far the barrel is raised out of the tile plane (0 = lying flat, PI / 2 = pointing at the player).
+const STAND_TILT = (60 * Math.PI) / 180
+
 const SPARKS = 18
 const SMOKE = 8
 
@@ -100,27 +103,32 @@ function CannonUnit({ lane }: { lane: number }) {
       </mesh>
 
       <group ref={barrel}>
-        <mesh position={[0, 0.2, 0]}>
-          <sphereGeometry args={[0.24, 32, 32]} />
-          <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
-        </mesh>
-        <mesh position={[0, -0.11, 0]}>
-          <cylinderGeometry args={[0.2, 0.15, 0.62, 32]} />
-          <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
-        </mesh>
-        <mesh position={[0, 0.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.185, 0.03, 12, 32]} />
-          <meshStandardMaterial {...DARK_IRON} />
-        </mesh>
-        <mesh position={[0, -0.43, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.16, 0.045, 12, 32]} />
-          <meshStandardMaterial {...DARK_IRON} />
-        </mesh>
-        {/* Dark bore inside the muzzle */}
-        <mesh position={[0, -0.425, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.12, 24]} />
-          <meshBasicMaterial color="#050505" />
-        </mesh>
+        {/* Stand the barrel up: tilt it about the breech so the muzzle points out of the screen. */}
+        <group position={[0, 0.2, 0.1]} rotation={[-STAND_TILT, 0, 0]}>
+          <group position={[0, -0.2, 0]}>
+            <mesh position={[0, 0.2, 0]}>
+              <sphereGeometry args={[0.24, 32, 32]} />
+              <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
+            </mesh>
+            <mesh position={[0, -0.11, 0]}>
+              <cylinderGeometry args={[0.2, 0.15, 0.62, 32]} />
+              <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
+            </mesh>
+            <mesh position={[0, 0.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.185, 0.03, 12, 32]} />
+              <meshStandardMaterial {...DARK_IRON} />
+            </mesh>
+            <mesh position={[0, -0.43, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.16, 0.045, 12, 32]} />
+              <meshStandardMaterial {...DARK_IRON} />
+            </mesh>
+            {/* Dark bore inside the muzzle */}
+            <mesh position={[0, -0.425, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.12, 24]} />
+              <meshBasicMaterial color="#050505" />
+            </mesh>
+          </group>
+        </group>
       </group>
 
       {/* Charge lamp on the shoulder of the tile */}
