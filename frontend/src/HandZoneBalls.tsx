@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
 import { ballRadiusPx, balls, getBallsVersion, stepBalls, subscribeBalls } from './balls'
+import BirdScene from './BirdScene'
 import Cannons from './CannonScene'
 import { getIronBase, ironTextureFor } from './ironTextures'
 import Ships from './ShipScene'
@@ -79,6 +80,7 @@ export default function HandZoneBalls() {
       <Cannonballs />
       <Ships />
       <Cannons />
+      <BirdScene />
     </Canvas>
   )
 }

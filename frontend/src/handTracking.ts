@@ -268,5 +268,12 @@ export function detect(video: HTMLVideoElement, timestampMs: number): HandLandma
   return result
 }
 
+// Maps a point in display space (0..1 of the camera frame, already mirrored) onto a cw x ch screen
+// showing the video with object-fit: cover, the same mapping Camera.tsx uses for the gloves.
+export function displayToScreen(p: { x: number; y: number }, cw: number, ch: number) {
+  const scale = Math.max(cw / videoAspect, ch)
+  return { x: (cw - videoAspect * scale) / 2 + p.x * videoAspect * scale, y: (ch - scale) / 2 + p.y * scale }
+}
+
 export const HAND_CONNECTIONS = HandLandmarker.HAND_CONNECTIONS
 export { THUMB_TIP, INDEX_TIP, MIDDLE_TIP }

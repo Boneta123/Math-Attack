@@ -10,6 +10,7 @@ import {
   handAnchors,
   initHandTracking,
 } from './handTracking'
+import { getSickleHands } from './bird'
 import { updateOperation } from './operations'
 
 const overlayStyle: React.CSSProperties = {
@@ -112,7 +113,9 @@ export default function Camera() {
 
       // Gloves: opaque everywhere except over the balls, where they turn see-through so the
       // balls stay visible. Drawn on a layer first so overlapping glove parts do not stack alpha.
-      const presentHands = [handAnchors.left, handAnchors.right].filter((h) => h.present)
+      // A hand showing a sickle (thumbs up) gets no glove at all: the sickle replaces it.
+      const sickleHands = getSickleHands().map((key) => handAnchors[key])
+      const presentHands = [handAnchors.left, handAnchors.right].filter((h) => h.present && !sickleHands.includes(h))
       if (presentHands.length > 0) {
         if (gloveLayer.width !== canvas.width || gloveLayer.height !== canvas.height) {
           gloveLayer.width = canvas.width
