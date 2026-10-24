@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { MAX_LIVES, getLives, subscribeLives } from './lives'
 import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
 
-const LABELS: Record<Operation, string> = { '+': 'RH + LH', '-': 'RH − LH', '*': 'RH × LH' }
+const LABELS: Record<Operation, string> = { '+': 'RH + LH', '*': 'RH × LH' }
 
 function Heart({ lost }: { lost: boolean }) {
   return (

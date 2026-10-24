@@ -2,8 +2,8 @@
 // "right op left" (the right-hand ball is the one acted on), and the right hand keeps the result.
 import { ACTION_BUFFER_MS, type HandAnchors } from './handTracking'
 
-export type Operation = '+' | '-' | '*'
-export const OPERATIONS: Operation[] = ['+', '-', '*']
+export type Operation = '+' | '*'
+export const OPERATIONS: Operation[] = ['+', '*']
 
 let current: Operation = '+'
 
@@ -23,7 +23,7 @@ function setOperation(op: Operation) {
 
 // right op left, or null when the result is below 1 (no zero or negative balls).
 export function applyOperation(op: Operation, right: number, left: number): number | null {
-  const result = op === '+' ? right + left : op === '-' ? right - left : right * left
+  const result = op === '+' ? right + left : right * left
   return result >= 1 ? result : null
 }
 
