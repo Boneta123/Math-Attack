@@ -318,7 +318,7 @@ export default function Cannons() {
   useFrame((_, delta) => {
     const held = balls.filter((b) => b.heldBy !== null)
     stepCannons(delta, held, size.width, size.height)
-    stepShips(delta, size.width, size.height)
+    stepShips(delta)
   })
 
   return (
