@@ -25,7 +25,7 @@ import { stepShips } from './ships'
 const IRON = { color: '#3b3f44', metalness: 0.8, roughness: 0.42 } as const
 const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
 
-// How far the barrel is raised out of the tile plane (0 = lying flat, PI / 2 = pointing at the player).
+// How far the barrel is raised out of the tile plane (0 = lying flat, PI / 2 = pointing straight into the screen).
 const STAND_TILT = (60 * Math.PI) / 180
 
 const SPARKS = 18
@@ -103,8 +103,8 @@ function CannonUnit({ lane }: { lane: number }) {
       </mesh>
 
       <group ref={barrel}>
-        {/* Stand the barrel up: tilt it about the breech so the muzzle points out of the screen. */}
-        <group position={[0, 0.2, 0.1]} rotation={[-STAND_TILT, 0, 0]}>
+        {/* Stand the barrel up: tilt it about the breech so the muzzle points into the screen, toward the water. */}
+        <group position={[0, 0.2, 0.1]} rotation={[STAND_TILT, 0, 0]}>
           <group position={[0, -0.2, 0]}>
             <mesh position={[0, 0.2, 0]}>
               <sphereGeometry args={[0.24, 32, 32]} />
