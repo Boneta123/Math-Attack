@@ -152,6 +152,8 @@ export default function Camera() {
         ctx.lineJoin = 'round'
         ctx.lineWidth = Math.max(4, r * 0.18)
         for (const ball of balls) {
+          // Resting balls already show the number painted on them; only held balls (under the glove) need it.
+          if (!ball.heldBy) continue
           const text = String(ball.value)
           const bx = ball.x * cw
           const by = ball.y * ch
