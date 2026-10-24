@@ -11,6 +11,12 @@ import { FLASH_TIME, SINK_TIME, getShipsVersion, shipScale, ships, subscribeShip
 const SPARKS = 16
 const SMOKE = 6
 const TILT = 0.3
+// Ships sit behind the cannons in depth so a cannon is drawn over any ship that sails past it.
+// The camera sits at CAMERA_Z; x, y and size are enlarged by the matching factor so the ship still
+// lands where the lane math puts it on screen.
+const SHIP_Z = -3
+const CAMERA_Z = 35.5
+const DEPTH_COMPENSATION = (CAMERA_Z - SHIP_Z) / CAMERA_Z
 
 // Number signs are painted onto canvases, cached per number like the cannon ball textures.
 const signCache = new Map<string, THREE.CanvasTexture>()
@@ -85,16 +91,18 @@ function ShipUnit({ ship }: { ship: Ship }) {
     const sunk = ship.state === 'sinking' ? Math.min(ship.sunkFor / SINK_TIME, 1) : 0
 
     g.position.set(
-      (layout.laneXAt(ship.lane, ship.y) - 0.5) * viewport.width,
-      (0.5 - ship.y) * viewport.height + Math.sin(t * 1.6) * 0.03 * unit * shipScale(ship),
-      0.2,
+      (layout.laneXAt(ship.lane, ship.y) - 0.5) * viewport.width * DEPTH_COMPENSATION,
+      ((0.5 - ship.y) * viewport.height + Math.sin(t * 1.6) * 0.03 * unit * shipScale(ship)) * DEPTH_COMPENSATION,
+      SHIP_Z,
     )
-    g.scale.setScalar(unit * shipScale(ship))
+    g.scale.setScalar(unit * shipScale(ship) * DEPTH_COMPENSATION)
 
     // Sea motion, then the sinking: tip over and slide under while fading out.
-    m.rotation.set(TILT + sunk * 0.5, 0, Math.sin(t * 1.1) * 0.06 + sunk * 0.9)
-    m.position.y = -sunk * 0.6
-    const opacity = 1 - sunk * sunk
+    // A ship blown up on the shore stays upright and vanishes in the fireball instead.
+    const tip = ship.blast ? 0 : sunk
+    m.rotation.set(TILT + tip * 0.5, 0, Math.sin(t * 1.1) * 0.06 + tip * 0.9)
+    m.position.y = -tip * 0.6
+    const opacity = ship.blast ? Math.max(0, 1 - sunk * 4) : 1 - sunk * sunk
     const red = ship.flash > 0 ? ship.flash / FLASH_TIME : 0
     for (const material of [hull, wood, plate, sail]) {
       material.opacity = opacity

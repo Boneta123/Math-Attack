@@ -29,6 +29,8 @@ export type Ship = {
   sunkFor: number
   // Seconds of red flash left after a wrong-number hit.
   flash: number
+  // True when the ship blew up on the shore rather than being sunk by a cannon shot.
+  blast: boolean
 }
 
 // Mutated in place like shots; the renderer subscribes to additions and removals.
@@ -72,7 +74,7 @@ export function stepShips(dt: number) {
     if (free.length > 0) {
       const lane = free[Math.floor(Math.random() * free.length)]
       const value = 1 + Math.floor(Math.random() * MAX_SHIP_VALUE)
-      ships.push({ id: nextShipId++, lane, value, y: LANE_END_Y, age: 0, state: 'sailing', sunkFor: 0, flash: 0 })
+      ships.push({ id: nextShipId++, lane, value, y: LANE_END_Y, age: 0, state: 'sailing', sunkFor: 0, flash: 0, blast: false })
       changed = true
     }
   }
@@ -91,7 +93,10 @@ export function stepShips(dt: number) {
     ship.flash = Math.max(0, ship.flash - dt)
     ship.y = LANE_END_Y + (SHORE_Y - LANE_END_Y) * shipProgress(ship) ** 1.4
     if (ship.age >= SHIP_TRAVEL_TIME) {
-      ships.splice(i, 1)
+      // Reached the shore: explode in place, then disappear like a sunk ship.
+      ship.state = 'sinking'
+      ship.sunkFor = 0
+      ship.blast = true
       changed = true
       landedCallback(ship)
     }
