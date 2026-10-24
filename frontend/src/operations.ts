@@ -1,4 +1,4 @@
-// The arithmetic operation used when the two held balls merge. Pointing up cycles it. A merge reads
+// The arithmetic operation used when the two held balls merge. Closing both fists moves it up the list. A merge reads
 // "right op left" (the right-hand ball is the one acted on), and the right hand keeps the result.
 import type { HandAnchors } from './handTracking'
 
@@ -27,16 +27,18 @@ export function applyOperation(op: Operation, right: number, left: number): numb
   return result >= 1 ? result : null
 }
 
-// Per-frame step: switch to the next operation each time BOTH hands start pointing up together
-// (MediaPipe's Pointing_Up gesture, see handTracking.ts). One hand pointing does nothing, and a
-// pinching hand is busy holding a ball, so it does not count.
-let wasBothPointing = false
+// Per-frame step: switch to the operation above each time BOTH hands close into fists together
+// (the Closed_Fist gesture, see handTracking.ts). One fist does nothing, and a pinching hand is
+// busy holding a ball, so it does not count. A fist is used rather than pointing up because a
+// pointing finger was easily mistaken for the start of a grab.
+let wasBothFists = false
 export function updateOperation(hands: { left: HandAnchors; right: HandAnchors }) {
-  const pointing = (hand: HandAnchors) => hand.present && !hand.pinch && hand.gesture === 'Pointing_Up'
-  const both = pointing(hands.left) && pointing(hands.right)
-  if (both && !wasBothPointing) {
-    setOperation(OPERATIONS[(OPERATIONS.indexOf(current) + 1) % OPERATIONS.length])
+  const fist = (hand: HandAnchors) => hand.present && !hand.pinch && hand.gesture === 'Closed_Fist'
+  const both = fist(hands.left) && fist(hands.right)
+  if (both && !wasBothFists) {
+    // Closing both fists moves the highlight up the inventory list; from the top it wraps to the bottom.
+    setOperation(OPERATIONS[(OPERATIONS.indexOf(current) - 1 + OPERATIONS.length) % OPERATIONS.length])
   }
-  wasBothPointing = both
+  wasBothFists = both
 }
 export const getOperationVersion = () => version
