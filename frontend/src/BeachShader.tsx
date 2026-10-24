@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // A full-screen shader that ray-casts a flat ground plane for every pixel, so the beach has real
-// perspective: sea out to a hazy horizon, a wet, foamy shoreline two thirds of the way down the
+// perspective: sea out to a hazy horizon, a wet, foamy shoreline 55% of the way down the
 // screen (matching the hand zone divider), and lit, rippled sand in front. Colors are written in
 // display (sRGB) space, so the material skips three.js color management.
 
@@ -22,11 +22,11 @@ const fragmentShader = /* glsl */ `
   varying vec2 vNdc;
 
   // Camera one unit above the ground, looking along +z. HORIZON is where the horizon lands on
-  // screen (ndc y, 1 = top) and SHORE_NDC is where the waterline lands (2/3 of the way down).
+  // screen (ndc y, 1 = top) and SHORE_NDC is where the waterline lands (55% of the way down).
   const float CAM_H = 1.0;
   const float TAN_HALF = 0.9;
   const float HORIZON = 0.82;
-  const float SHORE_NDC = -0.3333;
+  const float SHORE_NDC = -0.1;
 
   const vec3 SUN = vec3(-0.5, 0.2, 0.84);
   const vec3 HAZE = vec3(0.47, 0.53, 0.55);

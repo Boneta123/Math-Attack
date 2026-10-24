@@ -5,7 +5,7 @@
 // Same as the ball row's column count, so every cannon sits above one ball slot.
 export const LANES = 10
 // Normalized screen y of the center of the ball row (the cannons are placed relative to it).
-export const BALL_ROW_Y = 0.88
+export const BALL_ROW_Y = 0.72
 // Seconds from placing the ball on the tile to the shot leaving the barrel.
 export const FIRE_DELAY = 1.5
 // Seconds a shot takes to travel from the muzzle to the end of the lane.

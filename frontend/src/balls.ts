@@ -3,7 +3,7 @@ import { BALL_ROW_Y, LANES, tryLoadCannon } from './cannons'
 // Only 1, 2 and 3 ever spawn; every larger number is made by combining them.
 export const BALL_VALUES = [1, 2, 3]
 
-// Invisible single row in the hand zone (bottom third of the screen): 1 row x 10 columns = 10
+// Invisible single row in the hand zone (bottom 45% of the screen, starting at the shoreline): 1 row x 10 columns = 10
 // slots, one under each cannon. Resting balls always sit in a slot, so any ball is easy to pick out.
 const COLS = LANES
 const ROWS = 1
@@ -36,7 +36,7 @@ export type Ball = {
   slot: number | null
 }
 
-// Center of a grid slot in normalized screen space. The single row sits low in the hand zone,
+// Center of a grid slot in normalized screen space. The single row sits in the hand zone, just below the shoreline,
 // with the cannons directly above it.
 const slotCenter = (slot: number) => ({
   x: ((slot % COLS) + 0.5) / COLS,

@@ -14,7 +14,7 @@ export default function App() {
           left: 0,
           right: 0,
           bottom: 0,
-          height: '33.333%',
+          height: '45%',
           boxSizing: 'border-box',
           // Dark tideline; the sand tint itself comes from BeachScene.
           borderTop: '3px solid rgba(214, 222, 224, 0.55)',

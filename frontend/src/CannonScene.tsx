@@ -32,11 +32,16 @@ function CannonUnit({ lane }: { lane: number }) {
   const group = useRef<THREE.Group>(null)
   const barrel = useRef<THREE.Group>(null)
   const rim = useRef<THREE.MeshBasicMaterial>(null)
+  const plate = useRef<THREE.MeshStandardMaterial>(null)
+  const rimMesh = useRef<THREE.Mesh>(null)
+  const plateMesh = useRef<THREE.Mesh>(null)
+  // 0..1 fade of the tile grid: only visible while a held ball hovers over it.
+  const tileShow = useRef(0)
   const lamp = useRef<THREE.MeshStandardMaterial>(null)
   const glow = useRef<THREE.Mesh>(null)
   const { bump } = getIronBase()
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const g = group.current
     const b = barrel.current
     if (!g || !b) return
@@ -64,23 +69,27 @@ function CannonUnit({ lane }: { lane: number }) {
       glow.current.scale.setScalar(1 + 1.2 * p)
     }
 
-    // Tile rim: bright while a held ball is over it, pulsing while charging.
-    if (rim.current) {
-      rim.current.opacity = cannon.hover ? 0.85 : loaded ? 0.25 + 0.4 * blink : 0.14
-      rim.current.color.set(cannon.hover ? '#7dffb0' : '#ffb02e')
-    }
+    // Tile (outline and plate) fades in while a held ball is over it and out when it leaves.
+    const target = cannon.hover ? 1 : 0
+    tileShow.current += (target - tileShow.current) * Math.min(1, delta * 14)
+    if (Math.abs(target - tileShow.current) < 0.01) tileShow.current = target
+    const show = tileShow.current
+    if (rim.current) rim.current.opacity = 0.85 * show
+    if (plate.current) plate.current.opacity = show
+    if (rimMesh.current) rimMesh.current.visible = show > 0
+    if (plateMesh.current) plateMesh.current.visible = show > 0
   })
 
   return (
     <group ref={group} rotation={[0, 0, Math.PI]}>
-      {/* Tile: dark plate with a glowing outline behind it */}
-      <mesh position={[0, 0, -0.2]}>
+      {/* Tile: dark plate with a glowing outline behind it, shown only while a held ball hovers */}
+      <mesh ref={rimMesh} position={[0, 0, -0.2]} visible={false}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial ref={rim} color="#ffb02e" transparent opacity={0.14} depthWrite={false} />
+        <meshBasicMaterial ref={rim} color="#7dffb0" transparent opacity={0} depthWrite={false} />
       </mesh>
-      <mesh position={[0, 0, -0.14]}>
+      <mesh ref={plateMesh} position={[0, 0, -0.14]} visible={false}>
         <boxGeometry args={[0.92, 0.92, 0.08]} />
-        <meshStandardMaterial {...DARK_IRON} bumpMap={bump} bumpScale={1.5} />
+        <meshStandardMaterial ref={plate} {...DARK_IRON} bumpMap={bump} bumpScale={1.5} transparent opacity={0} />
       </mesh>
 
       <group ref={barrel}>
