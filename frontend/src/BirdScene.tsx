@@ -26,6 +26,19 @@ const MODEL_WIDTH = 2.7
 // The perched bird is drawn a bit smaller than the lane-wide size so it reads as further away.
 const PERCH_SCALE = 0.85
 const FEATHERS = 20
+// Seconds before landing that the feet start to come out, so the bird visibly drops its talons.
+const FEET_OUT_TIME = 1.5
+
+// Glowing orange talons: they only show once the bird has landed, to signal it can be attacked.
+function footMaterial() {
+  return new THREE.MeshStandardMaterial({
+    color: '#f0a020',
+    emissive: '#ff8a00',
+    emissiveIntensity: 0.6,
+    roughness: 0.6,
+    transparent: true,
+  })
+}
 
 function Bird() {
   const { viewport, size } = useThree()
@@ -33,13 +46,14 @@ function Bird() {
   const leftWing = useRef<THREE.Group>(null)
   const rightWing = useRef<THREE.Group>(null)
   const feathers = useRef<THREE.Points>(null)
+  const feet = useRef<THREE.Group>(null)
 
   const { materials, featherGeometry, featherVel } = useMemo(() => {
     const mat = (color: string) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, transparent: true })
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FEATHERS * 3), 3))
     return {
-      materials: { body: mat('#3b3f4a'), wing: mat('#2b2e37'), belly: mat('#c9c2b0'), beak: mat('#e0a030'), eye: mat('#fff7d6') },
+      materials: { body: mat('#3b3f4a'), wing: mat('#2b2e37'), belly: mat('#c9c2b0'), beak: mat('#e0a030'), feet: footMaterial(), eye: mat('#fff7d6') },
       featherGeometry: geometry,
       featherVel: Array.from({ length: FEATHERS }, () => {
         const angle = Math.random() * Math.PI * 2
@@ -80,6 +94,13 @@ function Bird() {
     if (leftWing.current) leftWing.current.rotation.z = flap
     if (rightWing.current) rightWing.current.rotation.z = -flap
 
+    // Feet unfold from the belly during the last moments of the flight and stay out once landed.
+    const out = bird.state === 'flying' ? Math.min(Math.max((bird.age - (BIRD_FLIGHT_TIME - FEET_OUT_TIME)) / FEET_OUT_TIME, 0), 1) : 1
+    if (feet.current) {
+      feet.current.visible = out > 0
+      feet.current.scale.set(1, Math.max(out, 0.001), 1)
+    }
+
     for (const material of Object.values(materials)) material.opacity = 1 - leave * leave
     const f = feathers.current
     if (f) {
@@ -116,6 +137,21 @@ function Bird() {
       <mesh material={m.eye} position={[0.15, 0.7, 0.55]}>
         <sphereGeometry args={[0.07, 12, 12]} />
       </mesh>
+      {/* Talons: legs hanging from the belly with three toes each; they pivot at the top and unfold downward */}
+      <group ref={feet} position={[0, -0.5, 0.15]} visible={false}>
+        {[-0.3, 0.3].map((x) => (
+          <group key={x} position={[x, 0, 0]}>
+            <mesh material={m.feet} position={[0, -0.25, 0]}>
+              <cylinderGeometry args={[0.05, 0.06, 0.5, 8]} />
+            </mesh>
+            {[-0.14, 0, 0.14].map((toe) => (
+              <mesh key={toe} material={m.feet} position={[toe, -0.55, 0.08]} rotation={[Math.PI / 2 + 0.2, 0, -toe * 2]}>
+                <coneGeometry args={[0.04, 0.24, 6]} />
+              </mesh>
+            ))}
+          </group>
+        ))}
+      </group>
       {/* Wings pivot at the shoulders */}
       <group ref={leftWing} position={[-0.55, 0.15, 0]}>
         <mesh material={m.wing} position={[-0.65, 0, 0]} scale={[1, 0.35, 0.12]}>
@@ -153,7 +189,9 @@ function Sickle({ handKey }: { handKey: 'left' | 'right' }) {
     g.position.set((palm.x / size.width - 0.5) * viewport.width * comp, (0.5 - palm.y / size.height) * viewport.height * comp, SICKLE_Z)
     // The handle runs along the hand, from the wrist through the palm.
     g.rotation.z = Math.atan2(-(palm.y - wrist.y), palm.x - wrist.x) - Math.PI / 2
-    g.scale.setScalar(unit * SICKLE_SIZE)
+    // The blade curves toward +x; mirror it for the left-hand sickle so each blade curls toward the outside of the screen.
+    const scale = unit * SICKLE_SIZE
+    g.scale.set(handKey === 'left' ? -scale : scale, scale, scale)
   })
 
   return (
