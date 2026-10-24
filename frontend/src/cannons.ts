@@ -11,7 +11,7 @@ export const FIRE_DELAY = 1.5
 // Seconds a shot takes to travel from the muzzle to the end of the lane.
 const SHOT_TRAVEL_TIME = 1.6
 // Normalized screen y where a shot disappears (near the horizon, out over the water).
-const LANE_END_Y = 0.12
+export const LANE_END_Y = 0.12
 // How far the lanes converge toward the middle of the screen at LANE_END_Y: 1 = parallel lanes,
 // 0 = every lane meets at one point. Below 1 the cannons fan inward and fire out across the water.
 const LANE_CONVERGE = 0.5
@@ -60,7 +60,7 @@ export const subscribeShots = (listener: () => void) => {
   return () => void listeners.delete(listener)
 }
 export const getShotsVersion = () => shotsVersion
-function notifyShots() {
+export function notifyShots() {
   shotsVersion++
   listeners.forEach((listener) => listener())
 }
@@ -80,7 +80,10 @@ export function cannonLayout(cw: number, ch: number) {
     const a = aim(lane)
     return { x: laneX(lane) + (Math.sin(a) * cell * 0.45) / cw, y: centerY - (Math.cos(a) * cell * 0.45) / ch }
   }
-  return { cell, centerY, laneX, laneEndX, aim, muzzle }
+  // Normalized x of the lane's center line at screen height y (the line shots and ships follow).
+  const laneXAt = (lane: number, y: number) =>
+    laneEndX(lane) + (laneX(lane) - laneEndX(lane)) * ((y - LANE_END_Y) / (centerY - LANE_END_Y))
+  return { cell, centerY, laneX, laneEndX, laneXAt, aim, muzzle }
 }
 
 // Which free cannon tile (if any) the point (nx, ny), in normalized screen space, is over.

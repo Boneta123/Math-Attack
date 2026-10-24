@@ -15,6 +15,7 @@ import {
   subscribeShots,
 } from './cannons'
 import { getIronBase, ironTextureFor } from './ironTextures'
+import { stepShips } from './ships'
 
 // Local cannon units: 1 = one grid column. The group is scaled to the tile size every frame, so
 // the cannons always fit their column. The model is built with the barrel pointing down (-y) and
@@ -280,6 +281,7 @@ export default function Cannons() {
   useFrame((_, delta) => {
     const held = balls.filter((b) => b.heldBy !== null)
     stepCannons(delta, held, size.width, size.height)
+    stepShips(delta)
   })
 
   return (

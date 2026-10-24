@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { ballRadiusPx, balls, getBallsVersion, stepBalls, subscribeBalls } from './balls'
 import Cannons from './CannonScene'
 import { getIronBase, ironTextureFor } from './ironTextures'
+import Ships from './ShipScene'
 
 function Cannonballs() {
   const { viewport, size } = useThree()
@@ -76,6 +77,7 @@ export default function HandZoneBalls() {
         <Lightformer form="ring" intensity={2.5} color="#8fb0c8" position={[0, 4, -4]} scale={4} />
       </Environment>
       <Cannonballs />
+      <Ships />
       <Cannons />
     </Canvas>
   )
