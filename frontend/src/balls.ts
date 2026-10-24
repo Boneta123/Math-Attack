@@ -1,4 +1,5 @@
 import { BALL_COLS, BALL_ROW_Y, tryLoadCannon } from './cannons'
+import { applyOperation, getOperation } from './operations'
 
 // Only 1, 2 and 3 ever spawn; every larger number is made by combining them.
 export const BALL_VALUES = [1, 2, 3]
@@ -149,10 +150,15 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   if (!a || !b) return
   if (Math.hypot((a.x - b.x) * cw, (a.y - b.y) * ch) > radius * MERGE_DISTANCE) return
 
+  // Right hand is primary: the value is (right ball) op (left ball). A result below 1 is not allowed,
+  // so those balls stay as they are.
+  const value = applyOperation(getOperation(), b.value, a.value)
+  if (value === null) return
+
   // The new ball takes the right ball's spot, which is already at the right pinch point.
   balls.splice(balls.indexOf(a), 1)
   balls.splice(balls.indexOf(b), 1)
-  balls.push({ id: nextBallId++, value: a.value + b.value, x: b.x, y: b.y, heldBy: 'right', slot: null })
+  balls.push({ id: nextBallId++, value, x: b.x, y: b.y, heldBy: 'right', slot: null })
 
   // The left fingers are still pinched, so wasGrabbing.left stays true and it cannot re-grab
   // until they separate and pinch again.

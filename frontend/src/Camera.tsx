@@ -10,6 +10,7 @@ import {
   handAnchors,
   initHandTracking,
 } from './handTracking'
+import { updateOperation } from './operations'
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -106,6 +107,7 @@ export default function Camera() {
         pinch: hand.present && hand.pinch,
         point: hand.present ? toCanvas(hand.pinchPoint) : { x: 0, y: 0 },
       })
+      updateOperation({ left: handAnchors.left, right: handAnchors.right })
       updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
 
       // Gloves: opaque everywhere except over the balls, where they turn see-through so the
