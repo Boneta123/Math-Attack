@@ -60,7 +60,7 @@ export default function Hud() {
           )
         })}
       </div>
-      <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, textShadow: '0 1px 3px #000' }}>Point up to switch</div>
+      <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, textShadow: '0 1px 3px #000' }}>Point both hands up to switch</div>
     </div>
   )
 }

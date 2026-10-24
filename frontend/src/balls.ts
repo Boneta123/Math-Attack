@@ -1,8 +1,10 @@
 import { BALL_COLS, BALL_ROW_Y, tryLoadCannon } from './cannons'
 import { applyOperation, getOperation } from './operations'
 
-// Only 1, 2 and 3 ever spawn; every larger number is made by combining them.
-export const BALL_VALUES = [1, 2, 3]
+// Every ball spawns as a 1; larger numbers are made by combining them.
+export const BALL_VALUE = 1
+// Balls in the row at the start.
+const START_BALLS = 3
 
 // Invisible single row in the hand zone (bottom 45% of the screen, starting at the shoreline): 1 row x 6 columns = 6
 // slots, with a cannon above each gap between neighbouring slots. Resting balls always sit in a slot, so any ball is easy to pick out.
@@ -11,10 +13,14 @@ const ROWS = 1
 export const MAX_BALLS = COLS * ROWS
 // Ball radius as a fraction of the smaller cell dimension: 3/4 of the size that just fit all 6.
 const BALL_FILL = 0.33
-// Seconds between new balls arriving at the middle of the row (while there is room).
+// Seconds between new balls entering from the left edge of the row (while there is room).
 const SPAWN_INTERVAL = 3
-// How quickly balls glide to their slot (higher = snappier).
-const SETTLE_RATE = 12
+// How quickly balls glide to their slot (higher = snappier). Slow enough to follow by eye.
+const SETTLE_RATE = 5
+// Where a ball starts when it enters the row from the left (just off the screen edge).
+const ENTRY_X = -0.08
+// Slot value of a ball that has just entered: left of every other ball until packRight reassigns it.
+const ENTRY_SLOT = -1
 
 // A pinch closing this many radii from a ball's center still picks it up (the pinch point is
 // the midpoint of two fingertips, so this is a little forgiving).
@@ -44,13 +50,13 @@ const slotCenter = (slot: number) => ({
 })
 
 // Mutated in place (merging and spawning add and remove balls), never reassigned.
-// The first rack sits in the middle of the row.
-export const balls: Ball[] = BALL_VALUES.map((value, i) => {
-  const slot = Math.floor((COLS - BALL_VALUES.length) / 2) + i
-  return { id: i + 1, value, ...slotCenter(slot), heldBy: null, slot }
+// The first rack sits at the right end of the row; resting balls always pack against the right.
+export const balls: Ball[] = Array.from({ length: START_BALLS }, (_, i) => {
+  const slot = COLS - START_BALLS + i
+  return { id: i + 1, value: BALL_VALUE, ...slotCenter(slot), heldBy: null, slot }
 })
 
-let nextBallId = BALL_VALUES.length + 1
+let nextBallId = START_BALLS + 1
 
 // Adding or removing balls changes what the renderer draws, so it subscribes to this (not per frame).
 let ballsVersion = 0
@@ -77,21 +83,23 @@ export type HandInput = {
 
 const wasGrabbing: Record<HandKey, boolean> = { left: false, right: false }
 
-// Put a released ball into the nearest free grid slot (it glides there).
-function snapToGrid(ball: Ball, cw: number, ch: number) {
-  const taken = new Set(balls.map((b) => b.slot))
-  let best: number | null = null
-  let bestDist = Infinity
-  for (let slot = 0; slot < MAX_BALLS; slot++) {
-    if (taken.has(slot)) continue
-    const c = slotCenter(slot)
-    const d = Math.hypot((c.x - ball.x) * cw, (c.y - ball.y) * ch)
-    if (d < bestDist) {
-      best = slot
-      bestDist = d
-    }
-  }
-  ball.slot = best
+// Resting balls form a queue packed against the right end of the row: the oldest ball is the
+// rightmost, the newest (or just-released) ball the leftmost. Whenever a ball enters, leaves or is
+// picked up, the others slide right to close the gap, so you can follow where every ball goes.
+function packRight() {
+  const resting = balls.filter((b) => b.slot !== null).sort((p, q) => p.slot! - q.slot!)
+  resting.forEach((ball, i) => {
+    ball.slot = COLS - resting.length + i
+  })
+}
+
+// A released ball (not dropped on a cannon) re-enters the row from the left edge.
+function sendToEntry(ball: Ball) {
+  ball.heldBy = null
+  ball.slot = ENTRY_SLOT
+  ball.x = ENTRY_X
+  ball.y = slotCenter(0).y
+  packRight()
 }
 
 // Pick up when the fingers pinch together over a ball, follow the pinch point while they stay
@@ -118,7 +126,8 @@ export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: n
       }
       if (best) {
         best.heldBy = key
-        best.slot = null // frees the slot; other balls may slide into it
+        best.slot = null // frees the slot; the balls to its left slide right to fill it
+        packRight()
       }
     }
 
@@ -131,10 +140,10 @@ export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: n
       } else if (tryLoadCannon(ball.value, ball.x, ball.y, cw, ch)) {
         // The cannon swallows the ball; it reappears as the shot a moment later.
         balls.splice(balls.indexOf(ball), 1)
+        packRight()
         notifyBalls()
       } else {
-        ball.heldBy = null
-        snapToGrid(ball, cw, ch)
+        sendToEntry(ball)
       }
     }
 
@@ -150,8 +159,8 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   if (!a || !b) return
   if (Math.hypot((a.x - b.x) * cw, (a.y - b.y) * ch) > radius * MERGE_DISTANCE) return
 
-  // Right hand is primary: the value is (right ball) op (left ball). A result below 1 is not allowed,
-  // so those balls stay as they are.
+  // The right ball is the one the operation acts on: (right ball) op (left ball). A result below 1
+  // is not allowed (for example 1 - 3), so those balls stay as they are.
   const value = applyOperation(getOperation(), b.value, a.value)
   if (value === null) return
 
@@ -165,19 +174,12 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   notifyBalls()
 }
 
-// Bring a new ball in at the middle of the row (hands cannot reach the screen edges), and let it
-// glide to the free slot nearest the middle. Returns false when every slot is taken.
+// Bring a new ball in from the left edge of the row; it slides right to the first free slot next
+// to the balls already there. Returns false when the row is full.
 function spawnBall(): boolean {
-  const taken = new Set(balls.map((b) => b.slot))
-  const free = Array.from({ length: MAX_BALLS }, (_, slot) => slot).filter((slot) => !taken.has(slot))
-  if (free.length === 0) return false
-  const middle = (COLS - 1) / 2
-  const distance = (slot: number) => Math.abs((slot % COLS) - middle)
-  const nearest = Math.min(...free.map(distance))
-  const candidates = free.filter((slot) => distance(slot) === nearest)
-  const slot = candidates[Math.floor(Math.random() * candidates.length)]
-  const value = BALL_VALUES[Math.floor(Math.random() * BALL_VALUES.length)]
-  balls.push({ id: nextBallId++, value, x: 0.5, y: slotCenter(slot).y, heldBy: null, slot })
+  if (balls.length >= MAX_BALLS) return false
+  balls.push({ id: nextBallId++, value: BALL_VALUE, x: ENTRY_X, y: slotCenter(0).y, heldBy: null, slot: ENTRY_SLOT })
+  packRight()
   return true
 }
 

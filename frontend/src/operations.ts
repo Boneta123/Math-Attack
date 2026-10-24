@@ -1,5 +1,5 @@
-// The arithmetic operation used when the two held balls merge. Pointing up cycles it. The right
-// hand is the primary hand, so a merge reads "right op left".
+// The arithmetic operation used when the two held balls merge. Pointing up cycles it. A merge reads
+// "right op left" (the right-hand ball is the one acted on), and the right hand keeps the result.
 import type { HandAnchors } from './handTracking'
 
 export type Operation = '+' | '-' | '*'
@@ -27,17 +27,16 @@ export function applyOperation(op: Operation, right: number, left: number): numb
   return result >= 1 ? result : null
 }
 
-// Per-frame step: switch to the next operation each time a hand starts pointing up (MediaPipe's
-// Pointing_Up gesture, see handTracking.ts). A pinching hand is busy holding a ball, so it is ignored.
-const wasPointing = { left: false, right: false }
+// Per-frame step: switch to the next operation each time BOTH hands start pointing up together
+// (MediaPipe's Pointing_Up gesture, see handTracking.ts). One hand pointing does nothing, and a
+// pinching hand is busy holding a ball, so it does not count.
+let wasBothPointing = false
 export function updateOperation(hands: { left: HandAnchors; right: HandAnchors }) {
-  let started = false
-  for (const key of ['left', 'right'] as const) {
-    const hand = hands[key]
-    const pointing = hand.present && !hand.pinch && hand.gesture === 'Pointing_Up'
-    if (pointing && !wasPointing[key]) started = true
-    wasPointing[key] = pointing
+  const pointing = (hand: HandAnchors) => hand.present && !hand.pinch && hand.gesture === 'Pointing_Up'
+  const both = pointing(hands.left) && pointing(hands.right)
+  if (both && !wasBothPointing) {
+    setOperation(OPERATIONS[(OPERATIONS.indexOf(current) + 1) % OPERATIONS.length])
   }
-  if (started) setOperation(OPERATIONS[(OPERATIONS.indexOf(current) + 1) % OPERATIONS.length])
+  wasBothPointing = both
 }
 export const getOperationVersion = () => version
