@@ -4,7 +4,7 @@ import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './
 // Lives are display only for now: nothing takes them away yet.
 const LIVES = 3
 
-const LABELS: Record<Operation, string> = { '+': 'RH + LH', '-': 'RH − LH', '*': 'RH × LH' }
+const LABELS: Record<Operation, string> = { '+': 'RH + LH', '*': 'RH × LH' }
 
 function Heart() {
   return (
