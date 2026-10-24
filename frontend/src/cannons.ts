@@ -16,7 +16,8 @@ const SHOT_TRAVEL_TIME = 1.6
 export const LANE_END_Y = 0.12
 // How far the lanes converge toward the middle of the screen at LANE_END_Y: 1 = parallel lanes,
 // 0 = every lane meets at one point. Below 1 the cannons fan inward and fire out across the water.
-const LANE_CONVERGE = 0.5
+// Kept at 1 so every cannon points straight up its lane, like the middle one, and ships come straight down.
+const LANE_CONVERGE = 1
 // Muzzle explosion lifetime in seconds.
 export const EXPLOSION_TIME = 0.55
 
