@@ -1,3 +1,4 @@
+import BeachScene from './BeachScene'
 import Camera from './Camera'
 import HandZoneBalls from './HandZoneBalls'
 
@@ -5,6 +6,7 @@ export default function App() {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Camera />
+      <BeachScene />
       <HandZoneBalls />
       <div
         style={{
@@ -14,9 +16,10 @@ export default function App() {
           bottom: 0,
           height: '33.333%',
           boxSizing: 'border-box',
-          borderTop: '3px solid #fff',
-          background: 'rgba(0, 0, 0, 0.25)',
+          // Dark tideline; the sand tint itself comes from BeachScene.
+          borderTop: '3px solid rgba(214, 222, 224, 0.55)',
           pointerEvents: 'none',
+          zIndex: 6,
         }}
       >
         <span
@@ -24,9 +27,10 @@ export default function App() {
             position: 'absolute',
             top: 8,
             left: 12,
-            color: '#fff',
+            color: '#e6dcc4',
             font: '14px system-ui, sans-serif',
             opacity: 0.8,
+            textShadow: '0 1px 3px #000',
           }}
         >
           Hand zone

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { drawGlove } from './glove'
 import {
   HAND_CONNECTIONS,
   INDEX_TIP,
@@ -18,7 +19,12 @@ const overlayStyle: React.CSSProperties = {
   background: 'rgba(0, 0, 0, 0.6)',
   color: '#fff',
   font: '18px system-ui, sans-serif',
+  zIndex: 12,
 }
+
+// The webcam stream must keep running (MediaPipe reads its frames), but it is not shown:
+// only the beach and the gloved hands are visible. Set to true to debug alignment.
+const SHOW_CAMERA_FEED = false
 
 const gestureLabel = (g: string) => (g === 'ILoveYou' ? 'I Love You' : g.replace('_', ' '))
 
@@ -98,8 +104,11 @@ export default function Camera() {
         const pts = hand.landmarks.map(toCanvas)
         const grab = hand.state === 'GRAB'
 
-        ctx.lineWidth = 3
-        ctx.strokeStyle = 'rgba(0, 255, 200, 0.8)'
+        // Brown glove first; the connections and all 21 points are drawn on top of it.
+        drawGlove(ctx, pts)
+
+        ctx.lineWidth = 2
+        ctx.strokeStyle = 'rgba(255, 236, 205, 0.65)'
         for (const { start, end } of HAND_CONNECTIONS) {
           ctx.beginPath()
           ctx.moveTo(pts[start].x, pts[start].y)
@@ -202,6 +211,9 @@ export default function Camera() {
           height: '100%',
           objectFit: 'cover',
           transform: 'scaleX(-1)',
+          // Gloomy look. CSS filters only change how the video is shown, not the frames MediaPipe reads.
+          filter: 'saturate(0.6) brightness(0.82) contrast(1.05)',
+          opacity: SHOW_CAMERA_FEED ? 1 : 0,
         }}
       />
       <canvas
@@ -212,6 +224,7 @@ export default function Camera() {
           width: '100%',
           height: '100%',
           pointerEvents: 'none',
+          zIndex: 10,
         }}
       />
       {trackingError ? (
