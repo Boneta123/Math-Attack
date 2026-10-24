@@ -54,8 +54,14 @@ function CannonUnit({ lane }: { lane: number }) {
     const loaded = cannon.value !== null
     const p = loaded ? Math.min(cannon.charge / FIRE_DELAY, 1) : 0
 
-    // Recoil: the barrel kicks back (toward the player) for a moment after firing.
-    b.position.y = 0.1 * Math.max(0, 1 - cannon.sinceFire / 0.25) ** 2
+    // Point the barrel along its lane. The group is flipped half a turn, so a clockwise turn of
+    // `aim` on screen is a rotation of -aim here.
+    const aim = layout.aim(lane)
+    b.rotation.z = -aim
+
+    // Recoil: the barrel kicks back (toward the player, along its own axis) after firing.
+    const recoil = 0.1 * Math.max(0, 1 - cannon.sinceFire / 0.25) ** 2
+    b.position.set(Math.sin(aim) * recoil, Math.cos(aim) * recoil, 0)
 
     // The lamp blinks faster as the shot gets close.
     const blink = loaded ? 0.55 + 0.45 * Math.sin(cannon.charge * (8 + 22 * p)) : 0
@@ -168,7 +174,10 @@ function Explosion({ lane }: { lane: number }) {
 
     const layout = cannonLayout(size.width, size.height)
     const unit = layout.cell * (viewport.height / size.height) // one cell in world units
-    g.position.set((layout.laneX(lane) - 0.5) * viewport.width, (0.5 - layout.muzzleY) * viewport.height, 0.4)
+    const muzzle = layout.muzzle(lane)
+    g.position.set((muzzle.x - 0.5) * viewport.width, (0.5 - muzzle.y) * viewport.height, 0.4)
+    // Spray along the barrel: the burst is built pointing up, so turn it clockwise by the aim.
+    g.rotation.z = -layout.aim(lane)
 
     const life = t / EXPLOSION_TIME
     if (flash.current) {
@@ -228,13 +237,12 @@ function Shots() {
   const materials = useMemo(() => new Map<number, THREE.MeshStandardMaterial>(), [])
 
   useFrame(() => {
-    const { laneX } = cannonLayout(size.width, size.height)
     for (const shot of shots) {
       const mesh = meshes.get(shot.id)
       const material = materials.get(shot.id)
       if (!mesh || !material) continue
       const p = shotProgress(shot)
-      mesh.position.set((laneX(shot.lane) - 0.5) * viewport.width, (0.5 - shot.y) * viewport.height, 0.3)
+      mesh.position.set((shot.x - 0.5) * viewport.width, (0.5 - shot.y) * viewport.height, 0.3)
       mesh.scale.setScalar(1 - 0.55 * p)
       material.emissiveIntensity = 0.7 * (1 - p) + 0.15
     }

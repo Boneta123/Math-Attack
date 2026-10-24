@@ -10,8 +10,11 @@ export const BALL_ROW_Y = 0.72
 export const FIRE_DELAY = 1.5
 // Seconds a shot takes to travel from the muzzle to the end of the lane.
 const SHOT_TRAVEL_TIME = 1.6
-// Normalized screen y where a shot disappears (near the top, out over the water).
+// Normalized screen y where a shot disappears (near the horizon, out over the water).
 const LANE_END_Y = 0.12
+// How far the lanes converge toward the middle of the screen at LANE_END_Y: 1 = parallel lanes,
+// 0 = every lane meets at one point. Below 1 the cannons fan inward and fire out across the water.
+const LANE_CONVERGE = 0.5
 // Muzzle explosion lifetime in seconds.
 export const EXPLOSION_TIME = 0.55
 
@@ -30,9 +33,12 @@ export type Shot = {
   id: number
   value: number
   lane: number
-  // Center in normalized screen space; y runs from the muzzle up to LANE_END_Y.
+  // Center in normalized screen space; runs from the muzzle to the end of the lane.
+  x: number
   y: number
+  startX: number
   startY: number
+  endX: number
   age: number
 }
 
@@ -60,15 +66,21 @@ function notifyShots() {
 }
 
 // Cannon geometry for a game area of cw x ch pixels. Each tile is one grid column wide and square,
-// one cell above the ball row; the barrel points up the lane.
+// one cell above the ball row; each barrel points along its lane toward the far end of the water.
 export function cannonLayout(cw: number, ch: number) {
   const cell = cw / LANES
-  return {
-    cell, // tile size in pixels
-    centerY: BALL_ROW_Y - cell / ch, // normalized y of the tile center
-    muzzleY: BALL_ROW_Y - (cell * 1.45) / ch, // normalized y of the barrel opening
-    laneX: (lane: number) => (lane + 0.5) / LANES, // normalized x of a lane
+  const centerY = BALL_ROW_Y - cell / ch // normalized y of the tile center
+  const laneX = (lane: number) => (lane + 0.5) / LANES // normalized x of a lane (tile center)
+  const laneEndX = (lane: number) => 0.5 + (laneX(lane) - 0.5) * LANE_CONVERGE
+  // Angle in radians from straight up, positive = pointing right on screen. Computed in pixels so
+  // the barrel and the shot agree on the direction whatever the aspect ratio.
+  const aim = (lane: number) => Math.atan2((laneEndX(lane) - laneX(lane)) * cw, (centerY - LANE_END_Y) * ch)
+  // Barrel opening: 0.45 of a cell from the tile center, along the aim direction.
+  const muzzle = (lane: number) => {
+    const a = aim(lane)
+    return { x: laneX(lane) + (Math.sin(a) * cell * 0.45) / cw, y: centerY - (Math.cos(a) * cell * 0.45) / ch }
   }
+  return { cell, centerY, laneX, laneEndX, aim, muzzle }
 }
 
 // Which free cannon tile (if any) the point (nx, ny), in normalized screen space, is over.
@@ -96,7 +108,7 @@ export function tryLoadCannon(value: number, nx: number, ny: number, cw: number,
 // light up the tile they would land on.
 export function stepCannons(dt: number, held: { x: number; y: number }[], cw: number, ch: number) {
   dt = Math.min(dt, 0.1)
-  const { muzzleY } = cannonLayout(cw, ch)
+  const layout = cannonLayout(cw, ch)
 
   for (const cannon of cannons) cannon.hover = false
   for (const ball of held) {
@@ -110,7 +122,18 @@ export function stepCannons(dt: number, held: { x: number; y: number }[], cw: nu
     if (cannon.value === null) return
     cannon.charge += dt
     if (cannon.charge < FIRE_DELAY) return
-    shots.push({ id: nextShotId++, value: cannon.value, lane, y: muzzleY, startY: muzzleY, age: 0 })
+    const muzzle = layout.muzzle(lane)
+    shots.push({
+      id: nextShotId++,
+      value: cannon.value,
+      lane,
+      x: muzzle.x,
+      y: muzzle.y,
+      startX: muzzle.x,
+      startY: muzzle.y,
+      endX: layout.laneEndX(lane),
+      age: 0,
+    })
     cannon.value = null
     cannon.charge = 0
     cannon.sinceFire = 0
@@ -125,6 +148,7 @@ export function stepCannons(dt: number, held: { x: number; y: number }[], cw: nu
       shots.splice(i, 1)
       changed = true
     } else {
+      shot.x = shot.startX + (shot.endX - shot.startX) * t
       shot.y = shot.startY + (LANE_END_Y - shot.startY) * t
     }
   }
