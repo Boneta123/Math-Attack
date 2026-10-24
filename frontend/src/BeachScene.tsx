@@ -1,31 +1,13 @@
 import './beach.css'
 import type { CSSProperties } from 'react'
-import { NoiseTexture } from './effects/NoiseTexture'
+import BeachShader from './BeachShader'
 import { Particles } from './effects/Particles'
-import { Ripple } from './effects/Ripple'
 
-// The hand zone (bottom third) is the sand; the rest is water. Matches the divider in App.tsx.
-const SAND_HEIGHT = '33.333%'
-const WATER_HEIGHT = '66.667%'
-
+// The sea, sand and shoreline are drawn by BeachShader (the shoreline sits at the top of the hand
+// zone, the bottom third, matching the divider in App.tsx). Everything else here is a flat prop
+// layered on top.
 const layer: CSSProperties = { position: 'absolute', pointerEvents: 'none' }
 const WRECK = '#15110e'
-
-// Repeating wave line used as a scrolling background (period 240px, matches bs-wave).
-const waveUrl = (amp: number, stroke: string) => {
-  const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='${amp * 2 + 4}' viewBox='0 0 240 ${amp * 2 + 4}'>` +
-    `<path d='M0 ${amp + 2} Q60 2 120 ${amp + 2} T240 ${amp + 2}' fill='none' stroke='${stroke}' stroke-width='2'/></svg>`
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
-}
-
-const WAVES = [
-  { top: '14%', amp: 5, stroke: 'rgba(190,210,215,0.22)', duration: 26 },
-  { top: '30%', amp: 7, stroke: 'rgba(190,210,215,0.18)', duration: 20 },
-  { top: '48%', amp: 9, stroke: 'rgba(190,210,215,0.16)', duration: 15 },
-  { top: '66%', amp: 11, stroke: 'rgba(210,225,228,0.2)', duration: 11 },
-  { top: '84%', amp: 12, stroke: 'rgba(210,225,228,0.24)', duration: 8 },
-]
 
 // Small dark silhouette of an invading ship on the horizon.
 function Ship({ left, top, width, delay }: { left: string; top: string; width: number; delay: number }) {
@@ -113,77 +95,17 @@ function SinkingHull() {
 }
 
 export default function BeachScene() {
-  // Everything here is translucent so the webcam feed stays visible underneath.
   return (
     <div style={{ ...layer, inset: 0, zIndex: 1, overflow: 'hidden' }}>
-      {/* Water zone */}
-      <div
-        style={{
-          ...layer,
-          top: 0,
-          left: 0,
-          right: 0,
-          height: WATER_HEIGHT,
-          // Pale overcast haze at the horizon so the dark ship silhouettes read, darker stormy water below.
-          background:
-            'linear-gradient(to bottom, rgba(120,138,146,0.5) 0%, rgba(60,82,90,0.5) 18%, rgba(14,30,38,0.6) 60%, rgba(30,58,66,0.42) 100%)',
-          overflow: 'hidden',
-        }}
-      >
-        {WAVES.map((w) => (
-          <div
-            key={w.top}
-            className="bs-wave"
-            style={{
-              top: w.top,
-              height: w.amp * 2 + 4,
-              backgroundImage: waveUrl(w.amp, w.stroke),
-              animationDuration: `${w.duration}s`,
-            }}
-          />
-        ))}
-        <Ripple mainCircleSize={150} mainCircleOpacity={0.16} numCircles={4} color="#b8ccd2" style={{ left: '-8%', top: '12%' }} />
-        <Ripple mainCircleSize={170} mainCircleOpacity={0.14} numCircles={4} color="#b8ccd2" style={{ left: '78%', top: '28%' }} />
-        <Ship left="6%" top="3%" width={70} delay={0} />
-        <Ship left="30%" top="5%" width={52} delay={1.4} />
-        <Ship left="64%" top="2%" width={62} delay={2.6} />
-        <Ship left="88%" top="6%" width={46} delay={0.8} />
-        <SinkingHull />
-      </div>
+      {/* Sea, shoreline and sand: a 3D-looking shader, with the horizon near the top of the screen */}
+      <BeachShader />
 
-      {/* Sand zone: the hand zone */}
-      <div
-        style={{
-          ...layer,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: SAND_HEIGHT,
-          background: 'linear-gradient(to bottom, rgba(125,102,68,0.42), rgba(72,58,40,0.55))',
-          overflow: 'hidden',
-        }}
-      >
-        <NoiseTexture frequency={0.85} octaves={3} slope={0.9} noiseOpacity={0.5} style={{ mixBlendMode: 'overlay' }} />
-      </div>
-
-      {/* Wet shoreline between water and sand */}
-      <svg
-        viewBox="0 0 1200 24"
-        preserveAspectRatio="none"
-        style={{ ...layer, left: 0, right: 0, bottom: SAND_HEIGHT, width: '100%', height: 24 }}
-      >
-        <path
-          d="M0 12 Q75 0 150 12 T300 12 T450 12 T600 12 T750 12 T900 12 T1050 12 T1200 12 L1200 24 L0 24 Z"
-          fill="rgba(58,48,36,0.45)"
-        />
-        <path
-          className="bs-foam"
-          d="M0 12 Q75 0 150 12 T300 12 T450 12 T600 12 T750 12 T900 12 T1050 12 T1200 12"
-          fill="none"
-          stroke="rgba(214,222,224,0.75)"
-          strokeWidth="3"
-        />
-      </svg>
+      {/* Invading ships sitting on the horizon */}
+      <Ship left="6%" top="3%" width={70} delay={0} />
+      <Ship left="30%" top="5%" width={52} delay={1.4} />
+      <Ship left="64%" top="2%" width={62} delay={2.6} />
+      <Ship left="88%" top="6%" width={46} delay={0.8} />
+      <SinkingHull />
 
       <HullWreck />
       <DebrisWreck />
