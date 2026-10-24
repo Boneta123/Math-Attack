@@ -6,8 +6,8 @@ import { LANES, LANE_END_Y, notifyShots, shots } from './cannons'
 export const SHORE_Y = 2 / 3
 // Seconds a ship takes to sail from the horizon to the shore.
 export const SHIP_TRAVEL_TIME = 14
-// Seconds between spawn attempts.
-const SPAWN_INTERVAL = 3
+// Seconds between spawns: one ship at a time keeps the water readable for now.
+const SPAWN_INTERVAL = 10
 // Highest number written on a ship.
 const MAX_SHIP_VALUE = 9
 // How close (normalized y) a shot has to get to a ship to hit it.
