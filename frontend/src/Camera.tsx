@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ballRadiusPx, balls, updateBalls } from './balls'
 import { drawGlove } from './glove'
 import {
   HAND_CONNECTIONS,
@@ -70,6 +71,8 @@ export default function Camera() {
     let lastVideoTime = -1
     let lastTimestamp = 0
     let wasVisible = false
+    // Gloves are drawn opaque here first, then composited over the main canvas (see draw).
+    const gloveLayer = document.createElement('canvas')
 
     const draw = () => {
       const video = videoRef.current
@@ -99,13 +102,52 @@ export default function Camera() {
         y: offsetY + p.y * vh * scale,
       })
 
-      for (const hand of [handAnchors.left, handAnchors.right]) {
-        if (!hand.present) continue
+      // Grab, drag and drop the cannonballs with a closed fist.
+      const handInput = (hand: typeof handAnchors.left) => ({
+        present: hand.present,
+        grab: hand.present && hand.state === 'GRAB',
+        palm: hand.present ? toCanvas(hand.palm) : { x: 0, y: 0 },
+      })
+      updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
+
+      // Gloves: opaque everywhere except over the balls, where they turn see-through so the
+      // balls stay visible. Drawn on a layer first so overlapping glove parts do not stack alpha.
+      const presentHands = [handAnchors.left, handAnchors.right].filter((h) => h.present)
+      if (presentHands.length > 0) {
+        if (gloveLayer.width !== canvas.width || gloveLayer.height !== canvas.height) {
+          gloveLayer.width = canvas.width
+          gloveLayer.height = canvas.height
+        }
+        const lg = gloveLayer.getContext('2d')
+        if (lg) {
+          lg.setTransform(dpr, 0, 0, dpr, 0, 0)
+          lg.clearRect(0, 0, cw, ch)
+          for (const hand of presentHands) drawGlove(lg, hand.landmarks.map(toCanvas))
+
+          const radius = ballRadiusPx(cw, ch)
+          const circles = new Path2D()
+          for (const ball of balls) circles.arc(ball.x * cw, ball.y * ch, radius, 0, Math.PI * 2)
+          const blit = () => ctx.drawImage(gloveLayer, 0, 0, cw, ch)
+
+          ctx.save()
+          const outside = new Path2D()
+          outside.rect(0, 0, cw, ch)
+          outside.addPath(circles)
+          ctx.clip(outside, 'evenodd')
+          blit()
+          ctx.restore()
+
+          ctx.save()
+          ctx.clip(circles)
+          ctx.globalAlpha = 0.35
+          blit()
+          ctx.restore()
+        }
+      }
+
+      for (const hand of presentHands) {
         const pts = hand.landmarks.map(toCanvas)
         const grab = hand.state === 'GRAB'
-
-        // Brown glove first; the connections and all 21 points are drawn on top of it.
-        drawGlove(ctx, pts)
 
         ctx.lineWidth = 2
         ctx.strokeStyle = 'rgba(255, 236, 205, 0.65)'

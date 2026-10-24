@@ -1,9 +1,8 @@
-import { useMemo } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { useMemo, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
-
-const BALL_VALUES = [1, 2, 3, 4, 5]
+import { BALL_VALUES, ballRadiusPx, balls } from './balls'
 
 const TEX_W = 512
 const TEX_H = 256
@@ -86,23 +85,44 @@ function numberedTexture(base: HTMLCanvasElement, value: number) {
 }
 
 function Cannonballs() {
-  const { viewport } = useThree()
+  const { viewport, size } = useThree()
   const { maps, bump } = useMemo(() => {
     const { colorCanvas, bump } = makeIronBase()
     return { maps: BALL_VALUES.map((v) => numberedTexture(colorCanvas, v)), bump }
   }, [])
-  // Hand zone is the bottom third of the screen; its vertical center in world units.
-  const y = -viewport.height / 3
-  const zoneHeight = viewport.height / 3
-  const radius = Math.min(zoneHeight * 0.3, viewport.width / (BALL_VALUES.length * 2.6))
-  const spacing = viewport.width / (BALL_VALUES.length + 1)
+  // Same radius the grab logic uses (screen pixels), converted to world units.
+  const radius = (ballRadiusPx(size.width, size.height) / size.height) * viewport.height
+  const meshes = useRef<(THREE.Mesh | null)[]>([])
+  const materials = useRef<(THREE.MeshStandardMaterial | null)[]>([])
+
+  // Balls live in normalized screen space (balls.ts); mirror that into world space every frame.
+  useFrame(() => {
+    balls.forEach((ball, i) => {
+      const mesh = meshes.current[i]
+      const material = materials.current[i]
+      if (!mesh || !material) return
+      mesh.position.set((ball.x - 0.5) * viewport.width, (0.5 - ball.y) * viewport.height, 0)
+      const held = ball.heldBy !== null
+      mesh.scale.setScalar(held ? 1.08 : 1)
+      material.emissiveIntensity = held ? 0.45 : 0
+    })
+  })
 
   return (
     <>
-      {BALL_VALUES.map((value, i) => (
-        <mesh key={value} position={[(i + 1) * spacing - viewport.width / 2, y, 0]}>
+      {balls.map((ball, i) => (
+        <mesh key={ball.value} ref={(m) => void (meshes.current[i] = m)}>
           <sphereGeometry args={[radius, 48, 48]} />
-          <meshStandardMaterial map={maps[i]} bumpMap={bump} bumpScale={2} metalness={0.7} roughness={0.45} />
+          <meshStandardMaterial
+            ref={(m) => void (materials.current[i] = m)}
+            map={maps[i]}
+            bumpMap={bump}
+            bumpScale={2}
+            metalness={0.7}
+            roughness={0.45}
+            emissive="#ff9a2a"
+            emissiveIntensity={0}
+          />
         </mesh>
       ))}
     </>
