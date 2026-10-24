@@ -1,6 +1,6 @@
 // Enemy ships sail down the lanes from the horizon to the shore. A cannon shot with the same
 // number sinks the ship; any other number is consumed and the ship sails on.
-import { LANES, LANE_END_Y, notifyShots, shots } from './cannons'
+import { LANES, LANE_END_Y, cannonLayout, notifyShots, shots } from './cannons'
 
 // Normalized screen y of the waterline (two thirds of the way down, matching the beach shader).
 export const SHORE_Y = 2 / 3
@@ -8,6 +8,11 @@ export const SHORE_Y = 2 / 3
 export const SHIP_TRAVEL_TIME = 40
 // Seconds between spawns: one ship at a time keeps the water readable for now.
 const SPAWN_INTERVAL = 12
+// A ship crashes (explodes) once the lower edge of its hull is this far above the top of the cannon
+// tiles, so it blows up just before it would start to overlap the cannons. The edge is
+// SHIP_HULL_DROP of the ship's size below its center, in lanes.
+const CRASH_MARGIN = 0.01
+const SHIP_HULL_DROP = 0.25
 // Highest number written on a ship.
 const MAX_SHIP_VALUE = 9
 // Seconds a sunk ship takes to go under, and a wrong-number hit flashes red.
@@ -74,8 +79,10 @@ export const depthScale = (y: number) => scaleAtDepth(depthOf(y))
 export const shipScale = (ship: Ship) => depthScale(ship.y)
 
 // Per-frame step (dt in seconds). Call after stepCannons so shots are already moved.
-export function stepShips(dt: number) {
+export function stepShips(dt: number, cw: number, ch: number) {
   dt = Math.min(dt, 0.1)
+  const { cell, centerY } = cannonLayout(cw, ch)
+  const cannonTop = centerY - (0.5 * cell) / ch
   let changed = false
 
   spawnTimer -= dt
@@ -104,8 +111,9 @@ export function stepShips(dt: number) {
     ship.flash = Math.max(0, ship.flash - dt)
     ship.prevY = ship.y
     ship.y = LANE_END_Y + (SHORE_Y - LANE_END_Y) * shipProgress(ship) ** SHIP_Y_EASE
-    if (ship.age >= SHIP_TRAVEL_TIME) {
-      // Reached the shore: explode in place, then disappear like a sunk ship.
+    const hullBottom = ship.y + (SHIP_HULL_DROP * shipScale(ship) * cell) / ch
+    if (ship.age >= SHIP_TRAVEL_TIME || hullBottom >= cannonTop - CRASH_MARGIN) {
+      // Reached the cannons (or the shore): explode in place, then disappear like a sunk ship.
       ship.state = 'sinking'
       ship.sunkFor = 0
       ship.blast = true
