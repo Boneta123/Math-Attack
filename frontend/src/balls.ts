@@ -15,7 +15,7 @@ const SPAWN_INTERVAL = 3
 const SETTLE_RATE = 12
 
 // A pinch closing this many radii from a ball's center still picks it up (the pinch point is
-// the midpoint of two fingertips, so this is a little forgiving).
+// the midpoint of the thumb and index fingertips, so this is a little forgiving).
 const GRAB_REACH = 1.5
 const EDGE_MARGIN = 0.03
 // Two held balls merge once their centers are this many radii apart or closer (touching).
@@ -69,7 +69,7 @@ export const ballRadiusPx = (cw: number, ch: number) =>
 
 export type HandInput = {
   present: boolean
-  pinch: boolean // index and middle fingertips together
+  pinch: boolean // thumb and index fingertips together
   point: { x: number; y: number } // the pinch point, in screen pixels
 }
 
@@ -92,8 +92,8 @@ function snapToGrid(ball: Ball, cw: number, ch: number) {
   ball.slot = best
 }
 
-// Pick up when the fingers pinch together over a ball, follow the pinch point while they stay
-// together, snap into the nearest free slot when the fingers separate or the hand disappears.
+// Pick up when the thumb and index finger pinch together over a ball, follow the pinch point while they stay
+// together, snap into the nearest free slot when they separate or the hand disappears.
 // When both hands hold a ball and the two touch, they merge into one ball (the sum) that
 // stays in the right hand.
 export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: number) {
@@ -153,8 +153,8 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   balls.splice(balls.indexOf(b), 1)
   balls.push({ id: nextBallId++, value: a.value + b.value, x: b.x, y: b.y, heldBy: 'right', slot: null })
 
-  // The left fingers are still pinched, so wasGrabbing.left stays true and it cannot re-grab
-  // until they separate and pinch again.
+  // The left pinch is still closed, so wasGrabbing.left stays true and it cannot re-grab
+  // until the thumb and finger separate and pinch again.
   notifyBalls()
 }
 

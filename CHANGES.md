@@ -95,6 +95,14 @@
 - Modified `frontend/src/Camera.tsx`: labels now only say "Ball held" (fingers together) or "Ball released"; landmark dots and the two key dots (index and middle fingertips, drawn larger) turn green while held. The landmarks and glove are otherwise unchanged. Gesture names are no longer shown.
 - Verified: real hand landmarks from a detected hand (V sign) with the fingers moved together: pinch at 0.15 and 0.25 hand-sizes apart, no new pinch at 0.38 but an existing hold survives, released at 0.55, the real V sign (0.74) is not a pinch, curled fingertips touching are not a pinch; logic test for the ball store (pickup reach, nearest ball, no sweep-up, follow, drop, merge to the right hand, no instant left re-pick, hand leaving view, 20,000-step randomized invariant test) passes; screenshot with a forced pinch shows "Ball held" with green dots; `npm run build` and `npm run lint` pass; no console errors. NOT verified: pinching with real fingers on the live webcam, and how well the 0.3 / 0.45 thresholds suit different hands and distances from the camera.
 
+## thumb-index-pinch
+
+- Worked on `main`; no commits made.
+- The pick-up gesture is now thumb tip (landmark 4) touching index fingertip (landmark 8), replacing index plus middle finger. `pinchPoint` is the midpoint of those two tips, and the ball follows it.
+- Modified `frontend/src/handTracking.ts`: `isPinching` now measures the thumb-to-index tip distance in hand sizes (closes below 0.3, stays closed until 0.45, flips after 2 consecutive frames, as before). The "both fingers straight" rule was replaced because a real pinch curls the index to meet the thumb: the index tip must now stay away from the palm (farther from the wrist than 1.2 times its knuckle to start, 1.05 to keep holding), which still stops a closed fist from counting. Removed the unused middle-fingertip constant.
+- Modified `frontend/src/Camera.tsx`: the two larger key dots are now the thumb tip and index tip. `frontend/src/balls.ts`: comments only; ball rules (reach, nearest ball, merge to the right hand, snap to the grid) are unchanged.
+- Verified: on real landmarks from a detected hand with the thumb moved into place: pinch at 0.1, 0.2 and 0.28 hand-sizes, no new pinch at 0.38 but an existing hold survives, released at 0.55, a real open hand is not a pinch, a pinch with the index curled to 70% and 55% still counts, and a fist-like pose (index folded in, thumb touching) does not start a pinch; `npm run build` and `npm run lint` pass; no console errors. NOT verified: pinching with a real hand on the live webcam; the 0.3 / 0.45 and 1.2 / 1.05 thresholds may need tuning for different hands. A fist already holding a ball would drop it once the index tip is pulled below 1.05 times its knuckle distance (real fists are expected to be well below that).
+
 ## cannons
 
 - Built in worktree branch `worktree-cannons` and merged into `main`.
