@@ -1,10 +1,8 @@
 import { BALL_COLS, BALL_ROW_Y, tryLoadCannon } from './cannons'
 import { applyOperation, getOperation } from './operations'
 
-// Every ball spawns as a 1; larger numbers are made by combining them.
-export const BALL_VALUE = 1
-// Balls in the row at the start.
-const START_BALLS = 3
+// Only 1, 2 and 3 ever spawn, cycling in that order; every larger number is made by combining them.
+export const BALL_VALUES = [1, 2, 3]
 
 // Invisible single row in the hand zone (bottom 45% of the screen, starting at the shoreline): 1 row x 6 columns = 6
 // slots, with a cannon above each gap between neighbouring slots. Resting balls always sit in a slot, so any ball is easy to pick out.
@@ -51,12 +49,14 @@ const slotCenter = (slot: number) => ({
 
 // Mutated in place (merging and spawning add and remove balls), never reassigned.
 // The first rack sits at the right end of the row; resting balls always pack against the right.
-export const balls: Ball[] = Array.from({ length: START_BALLS }, (_, i) => {
-  const slot = COLS - START_BALLS + i
-  return { id: i + 1, value: BALL_VALUE, ...slotCenter(slot), heldBy: null, slot }
+export const balls: Ball[] = BALL_VALUES.map((value, i) => {
+  const slot = COLS - BALL_VALUES.length + i
+  return { id: i + 1, value, ...slotCenter(slot), heldBy: null, slot }
 })
 
-let nextBallId = START_BALLS + 1
+let nextBallId = BALL_VALUES.length + 1
+// Index into BALL_VALUES of the next ball to spawn (the starting rack used 1, 2, 3 already).
+let nextValueIndex = 0
 
 // Adding or removing balls changes what the renderer draws, so it subscribes to this (not per frame).
 let ballsVersion = 0
@@ -178,7 +178,9 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
 // to the balls already there. Returns false when the row is full.
 function spawnBall(): boolean {
   if (balls.length >= MAX_BALLS) return false
-  balls.push({ id: nextBallId++, value: BALL_VALUE, x: ENTRY_X, y: slotCenter(0).y, heldBy: null, slot: ENTRY_SLOT })
+  const value = BALL_VALUES[nextValueIndex]
+  nextValueIndex = (nextValueIndex + 1) % BALL_VALUES.length
+  balls.push({ id: nextBallId++, value, x: ENTRY_X, y: slotCenter(0).y, heldBy: null, slot: ENTRY_SLOT })
   packRight()
   return true
 }
