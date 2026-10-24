@@ -4,7 +4,7 @@ import { drawGlove } from './glove'
 import {
   HAND_CONNECTIONS,
   INDEX_TIP,
-  THUMB_TIP,
+  MIDDLE_TIP,
   stopHandTracking,
   detect,
   handAnchors,
@@ -100,7 +100,7 @@ export default function Camera() {
         y: offsetY + p.y * vh * scale,
       })
 
-      // Pick up, drag and drop the cannonballs by pinching the thumb and index fingertips together.
+      // Pick up, drag and drop the cannonballs by pinching the index and middle fingertips together.
       const handInput = (hand: typeof handAnchors.left) => ({
         present: hand.present,
         pinch: hand.present && hand.pinch,
@@ -178,7 +178,7 @@ export default function Camera() {
         }
 
         pts.forEach((p, i) => {
-          const key = i === THUMB_TIP || i === INDEX_TIP // the two fingertips that pick up balls
+          const key = i === INDEX_TIP || i === MIDDLE_TIP // the two fingers that pick up balls
           ctx.beginPath()
           ctx.arc(p.x, p.y, key ? 11 : 6, 0, Math.PI * 2)
           ctx.fillStyle = key ? (held ? '#3dff7a' : '#ff3d71') : held ? '#3dff7a' : '#ffe14d'

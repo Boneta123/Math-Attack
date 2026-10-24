@@ -39,6 +39,8 @@ export type Shot = {
   // Center in normalized screen space; runs from the muzzle to the end of the lane.
   x: number
   y: number
+  // True until the first ship collision pass, which handles ships already past the muzzle.
+  fresh: boolean
   // Where y was before the latest step (for crossing tests against ships).
   prevY: number
   startX: number
@@ -138,6 +140,7 @@ export function stepCannons(dt: number, held: { x: number; y: number }[], cw: nu
       x: muzzle.x,
       y: muzzle.y,
       prevY: muzzle.y,
+      fresh: true,
       startX: muzzle.x,
       startY: muzzle.y,
       endX: layout.laneEndX(lane),

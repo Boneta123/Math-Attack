@@ -117,18 +117,24 @@ export function stepShips(dt: number) {
   // Shots against ships in the same lane. Shots fly out (depth rising) while ships sail in (depth
   // falling); a hit needs them to reach the same depth point, so the test is that their depths
   // crossed this frame. No distance tolerance, so nothing hits before the two visibly touch.
+  // A ship that has already sailed past the muzzle can no longer be crossed by the outbound shot,
+  // so a freshly fired shot hits the ship nearest the muzzle on its way to the shore point-blank:
+  // a ship can be destroyed anywhere in its lane until it reaches the shore and explodes.
   let shotsChanged = false
   for (let i = shots.length - 1; i >= 0; i--) {
     const shot = shots[i]
     const shotDepth = depthOf(shot.y)
     const shotPrevDepth = depthOf(shot.prevY)
-    const ship = ships.find(
-      (s) =>
-        s.state === 'sailing' &&
-        s.lane === shot.lane &&
-        shotPrevDepth <= depthOf(s.prevY) &&
-        shotDepth >= depthOf(s.y),
-    )
+    const muzzleDepth = depthOf(shot.startY)
+    const inLane = ships.filter((s) => s.state === 'sailing' && s.lane === shot.lane)
+    let ship: Ship | undefined
+    if (shot.fresh) {
+      shot.fresh = false
+      ship = inLane
+        .filter((s) => depthOf(s.y) <= muzzleDepth)
+        .sort((a, b) => depthOf(b.y) - depthOf(a.y))[0]
+    }
+    ship ??= inLane.find((s) => shotPrevDepth <= depthOf(s.prevY) && shotDepth >= depthOf(s.y))
     if (!ship) continue
     shots.splice(i, 1)
     shotsChanged = true
