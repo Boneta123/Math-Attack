@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { cannonLayout, LANE_END_Y } from './cannons'
 import { displayToScreen, handAnchors } from './handTracking'
-import { getLives } from './lives'
+import { isGameRunning } from './game'
 import {
   BIRD_CHARGE_TIME,
   BIRD_FLIGHT_TIME,
@@ -65,7 +65,7 @@ function Bird() {
   }, [])
 
   useFrame(({ clock }, delta) => {
-    if (getLives() > 0) stepBird(delta, size.width, size.height)
+    if (isGameRunning()) stepBird(delta, size.width, size.height)
     const g = group.current
     const bird = getBird()
     if (!g) return

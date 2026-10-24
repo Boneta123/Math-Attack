@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { ballRadiusPx, balls, updateBalls } from './balls'
 import { drawGlove } from './glove'
 import {
@@ -11,7 +11,7 @@ import {
   initHandTracking,
 } from './handTracking'
 import { getSickleHands } from './bird'
-import { updateOperation } from './operations'
+import { getScreen, isGameRunning, subscribeScreen } from './game'
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -35,6 +35,7 @@ export default function Camera() {
   const [error, setError] = useState<string | null>(null)
   const [trackingError, setTrackingError] = useState<string | null>(null)
   const [handVisible, setHandVisible] = useState(false)
+  const screen = useSyncExternalStore(subscribeScreen, getScreen)
 
   useEffect(() => {
     let stream: MediaStream | null = null
@@ -108,8 +109,8 @@ export default function Camera() {
         pinch: hand.present && hand.pinch,
         point: hand.present ? toCanvas(hand.pinchPoint) : { x: 0, y: 0 },
       })
-      updateOperation({ left: handAnchors.left, right: handAnchors.right })
-      updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
+      // Hands only grab balls during a game, not on the home, calibration or game over screens.
+      if (isGameRunning()) updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
 
       // Gloves: opaque everywhere except over the balls, where they turn see-through so the
       // balls stay visible. Drawn on a layer first so overlapping glove parts do not stack alpha.
@@ -299,7 +300,8 @@ export default function Camera() {
       {trackingError ? (
         <div style={{ ...overlayStyle, top: 24 }}>{trackingError}</div>
       ) : (
-        !handVisible && <div style={{ ...overlayStyle, top: 24 }}>Show your hand to the camera</div>
+        // Hands were lined up before the game started, so the prompt is not shown during play.
+        !handVisible && screen !== 'playing' && <div style={{ ...overlayStyle, top: 24 }}>Show your hand to the camera</div>
       )}
     </div>
   )

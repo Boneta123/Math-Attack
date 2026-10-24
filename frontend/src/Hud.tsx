@@ -1,8 +1,6 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
+import { goHome } from './game'
 import { MAX_LIVES, getLives, subscribeLives } from './lives'
-import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
-
-const LABELS: Record<Operation, string> = { '+': 'RH + LH', '*': 'RH × LH' }
 
 function Heart({ lost }: { lost: boolean }) {
   return (
@@ -22,49 +20,61 @@ function Heart({ lost }: { lost: boolean }) {
   )
 }
 
-// Top-left HUD: lives above a small inventory of the three operations.
-export default function Hud() {
-  const selected = useSyncExternalStore(subscribeOperation, getOperation)
-  const lives = useSyncExternalStore(subscribeLives, getLives)
+// Top-right button that leaves the game for the home screen (Escape does the same).
+function ExitButton() {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') goHome()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
-    <div
+    <button
+      onClick={goHome}
       style={{
         position: 'absolute',
         top: 14,
-        left: 14,
+        right: 14,
         zIndex: 12,
-        pointerEvents: 'none',
-        font: '14px system-ui, sans-serif',
+        padding: '8px 18px',
+        border: '2px solid rgba(255,255,255,0.3)',
+        borderRadius: 8,
+        background: 'rgba(0, 0, 0, 0.55)',
         color: '#f1e6c8',
+        font: 'bold 15px system-ui, sans-serif',
+        cursor: 'pointer',
       }}
     >
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {Array.from({ length: MAX_LIVES }, (_, i) => (
-          <Heart key={i} lost={i >= lives} />
-        ))}
+      Exit
+    </button>
+  )
+}
+
+// Top-left HUD: remaining lives. The mode is picked on the home screen, so it is not shown here.
+export default function Hud() {
+  const lives = useSyncExternalStore(subscribeLives, getLives)
+  return (
+    <>
+      <div
+        style={{
+          position: 'absolute',
+          top: 14,
+          left: 14,
+          zIndex: 12,
+          pointerEvents: 'none',
+          font: '14px system-ui, sans-serif',
+          color: '#f1e6c8',
+        }}
+      >
+        <div style={{ display: 'flex', gap: 6 }}>
+          {Array.from({ length: MAX_LIVES }, (_, i) => (
+            <Heart key={i} lost={i >= lives} />
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 124 }}>
-        {OPERATIONS.map((op) => {
-          const active = op === selected
-          return (
-            <div
-              key={op}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 8,
-                background: active ? 'rgba(60, 44, 20, 0.85)' : 'rgba(0, 0, 0, 0.55)',
-                border: `2px solid ${active ? '#f2c14e' : 'rgba(255,255,255,0.18)'}`,
-                boxShadow: active ? '0 0 10px rgba(242, 193, 78, 0.7)' : 'none',
-                opacity: active ? 1 : 0.7,
-                fontWeight: active ? 700 : 500,
-              }}
-            >
-              {LABELS[op]}
-            </div>
-          )
-        })}
-      </div>
-      <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, textShadow: '0 1px 3px #000' }}>Close both fists to switch</div>
-    </div>
+      <ExitButton />
+    </>
   )
 }
