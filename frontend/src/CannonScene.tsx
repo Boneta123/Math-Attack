@@ -15,6 +15,7 @@ import {
   subscribeShots,
 } from './cannons'
 import { getIronBase, ironTextureFor } from './ironTextures'
+import { getLives } from './lives'
 import { SHOT_SIZE, depthScale, stepShips } from './ships'
 
 // Local cannon units: 1 = one grid column. The group is scaled to the tile size every frame, so
@@ -316,6 +317,7 @@ export default function Cannons() {
   const { size } = useThree()
 
   useFrame((_, delta) => {
+    if (getLives() === 0) return
     const held = balls.filter((b) => b.heldBy !== null)
     stepCannons(delta, held, size.width, size.height)
     stepShips(delta)

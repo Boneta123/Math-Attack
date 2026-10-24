@@ -47,11 +47,16 @@ export const getBird = () => bird
 
 let spawnTimer = FIRST_BIRD_DELAY
 
-// Fires once when a charging bird reaches the player.
-// TODO: wire to lives / score.
+// Fires once when a charging bird reaches the player (lives.ts takes a life).
 let hitCallback: (bird: Bird) => void = () => {}
 export const onBirdHit = (callback: (bird: Bird) => void) => {
   hitCallback = callback
+}
+
+// Sends any bird away and restarts the wait for the first one, for a new game.
+export function resetBird() {
+  bird = null
+  spawnTimer = FIRST_BIRD_DELAY
 }
 
 // The hand that can cure a bird: the one on the opposite side of the screen.

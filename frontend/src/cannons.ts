@@ -72,6 +72,18 @@ export function notifyShots() {
   listeners.forEach((listener) => listener())
 }
 
+// Empties the cannons and removes every shot in flight, for a new game.
+export function resetCannons() {
+  for (const cannon of cannons) {
+    cannon.value = null
+    cannon.charge = 0
+    cannon.hover = false
+    cannon.sinceFire = Infinity
+  }
+  shots.length = 0
+  notifyShots()
+}
+
 // Cannon geometry for a game area of cw x ch pixels. Each tile is one grid column wide and square,
 // one cell above the ball row and centered on the boundary between two ball columns; each barrel points along its lane toward the far end of the water.
 export function cannonLayout(cw: number, ch: number) {

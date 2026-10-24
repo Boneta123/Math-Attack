@@ -54,11 +54,17 @@ function notifyShips() {
   listeners.forEach((listener) => listener())
 }
 
-// Fires once when a ship reaches the shore.
-// TODO: wire to lives / score.
+// Fires once when a ship reaches the shore (lives.ts takes a life).
 let landedCallback: (ship: Ship) => void = () => {}
 export const onShipLanded = (callback: (ship: Ship) => void) => {
   landedCallback = callback
+}
+
+// Clears the water for a new game.
+export function resetShips() {
+  ships.length = 0
+  spawnTimer = 1
+  notifyShips()
 }
 
 // 0 at the horizon, 1 at the shore.

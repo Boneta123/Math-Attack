@@ -1,14 +1,17 @@
 import { useSyncExternalStore } from 'react'
+import { MAX_LIVES, getLives, subscribeLives } from './lives'
 import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
-
-// Lives are display only for now: nothing takes them away yet.
-const LIVES = 3
 
 const LABELS: Record<Operation, string> = { '+': 'RH + LH', '-': 'RH − LH', '*': 'RH × LH' }
 
-function Heart() {
+function Heart({ lost }: { lost: boolean }) {
   return (
-    <svg width="34" height="31" viewBox="0 0 32 29" style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }}>
+    <svg
+      width="34"
+      height="31"
+      viewBox="0 0 32 29"
+      style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))', opacity: lost ? 0.25 : 1 }}
+    >
       <path
         d="M16 28 C16 28 1 18 1 8.5 C1 4 4.5 1 8.5 1 C11.7 1 14.5 2.8 16 5.6 C17.5 2.8 20.3 1 23.5 1 C27.5 1 31 4 31 8.5 C31 18 16 28 16 28 Z"
         fill="#e5263f"
@@ -22,6 +25,7 @@ function Heart() {
 // Top-left HUD: lives above a small inventory of the three operations.
 export default function Hud() {
   const selected = useSyncExternalStore(subscribeOperation, getOperation)
+  const lives = useSyncExternalStore(subscribeLives, getLives)
   return (
     <div
       style={{
@@ -35,8 +39,8 @@ export default function Hud() {
       }}
     >
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {Array.from({ length: LIVES }, (_, i) => (
-          <Heart key={i} />
+        {Array.from({ length: MAX_LIVES }, (_, i) => (
+          <Heart key={i} lost={i >= lives} />
         ))}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 124 }}>

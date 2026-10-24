@@ -113,9 +113,12 @@ export default function Camera() {
 
       // Gloves: opaque everywhere except over the balls, where they turn see-through so the
       // balls stay visible. Drawn on a layer first so overlapping glove parts do not stack alpha.
-      // A hand showing a sickle (thumbs up) gets no glove at all: the sickle replaces it.
+      // A hand showing a sickle (thumbs up) gets no glove at all: the sickle replaces it. A hand reading
+      // Thumb_Up is hidden right away too, so the glove does not wait on the bird step to catch up.
       const sickleHands = getSickleHands().map((key) => handAnchors[key])
-      const presentHands = [handAnchors.left, handAnchors.right].filter((h) => h.present && !sickleHands.includes(h))
+      const presentHands = [handAnchors.left, handAnchors.right].filter(
+        (h) => h.present && h.gesture !== 'Thumb_Up' && !sickleHands.includes(h),
+      )
       if (presentHands.length > 0) {
         if (gloveLayer.width !== canvas.width || gloveLayer.height !== canvas.height) {
           gloveLayer.width = canvas.width

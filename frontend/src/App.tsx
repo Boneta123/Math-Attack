@@ -1,6 +1,7 @@
 import BeachScene from './BeachScene'
 import Camera from './Camera'
 import HandZoneBalls from './HandZoneBalls'
+import GameOver from './GameOver'
 import Hud from './Hud'
 
 export default function App() {
@@ -10,6 +11,7 @@ export default function App() {
       <BeachScene />
       <HandZoneBalls />
       <Hud />
+      <GameOver />
       <div
         style={{
           position: 'absolute',
