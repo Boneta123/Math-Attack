@@ -25,6 +25,8 @@ import { stepShips } from './ships'
 const IRON = { color: '#3b3f44', metalness: 0.8, roughness: 0.42 } as const
 const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
 
+const WOOD = { color: '#5a4028', metalness: 0.05, roughness: 0.85 } as const
+
 // How far the barrel is raised out of the tile plane (0 = lying flat, PI / 2 = pointing straight into the screen).
 const STAND_TILT = (60 * Math.PI) / 180
 
@@ -100,6 +102,29 @@ function CannonUnit({ lane }: { lane: number }) {
       <mesh ref={plateMesh} position={[0, 0, -0.14]} visible={false}>
         <boxGeometry args={[0.92, 0.92, 0.08]} />
         <meshStandardMaterial ref={plate} {...DARK_IRON} bumpMap={bump} bumpScale={1.5} transparent opacity={0} />
+      </mesh>
+
+      {/* Stilts: two legs from the breech down to the ground with a crossbar, foot pads and a
+          soft shadow. Local +y is screen-down; the frame stays put while the barrel aims. */}
+      <mesh position={[0, 0.62, -0.1]} scale={[1, 0.45, 1]}>
+        <circleGeometry args={[0.36, 24]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
+      </mesh>
+      {[-0.17, 0.17].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 0.42, 0]}>
+            <cylinderGeometry args={[0.04, 0.05, 0.44, 12]} />
+            <meshStandardMaterial {...WOOD} />
+          </mesh>
+          <mesh position={[x, 0.63, 0]}>
+            <boxGeometry args={[0.16, 0.05, 0.14]} />
+            <meshStandardMaterial {...DARK_IRON} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, 0.46, 0.02]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.38, 10]} />
+        <meshStandardMaterial {...WOOD} />
       </mesh>
 
       <group ref={barrel}>
