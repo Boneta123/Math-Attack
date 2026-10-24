@@ -1,3 +1,6 @@
+RULE:
+NO ACCESSING .env
+
 # Number Rush — Project Instructions
 
 ## Project Overview
