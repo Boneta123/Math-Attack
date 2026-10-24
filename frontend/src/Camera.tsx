@@ -4,7 +4,7 @@ import { drawGlove } from './glove'
 import {
   HAND_CONNECTIONS,
   INDEX_TIP,
-  THUMB_TIP,
+  MIDDLE_TIP,
   stopHandTracking,
   detect,
   handAnchors,
@@ -26,8 +26,6 @@ const overlayStyle: React.CSSProperties = {
 // The webcam stream must keep running (MediaPipe reads its frames), but it is not shown:
 // only the beach and the gloved hands are visible. Set to true to debug alignment.
 const SHOW_CAMERA_FEED = false
-
-const gestureLabel = (g: string) => (g === 'ILoveYou' ? 'I Love You' : g.replace('_', ' '))
 
 export default function Camera() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -102,11 +100,11 @@ export default function Camera() {
         y: offsetY + p.y * vh * scale,
       })
 
-      // Grab, drag and drop the cannonballs with a closed fist.
+      // Pick up, drag and drop the cannonballs by pinching the index and middle fingertips together.
       const handInput = (hand: typeof handAnchors.left) => ({
         present: hand.present,
-        grab: hand.present && hand.state === 'GRAB',
-        palm: hand.present ? toCanvas(hand.palm) : { x: 0, y: 0 },
+        pinch: hand.present && hand.pinch,
+        point: hand.present ? toCanvas(hand.pinchPoint) : { x: 0, y: 0 },
       })
       updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
 
@@ -147,7 +145,7 @@ export default function Camera() {
 
       for (const hand of presentHands) {
         const pts = hand.landmarks.map(toCanvas)
-        const grab = hand.state === 'GRAB'
+        const held = hand.pinch
 
         ctx.lineWidth = 2
         ctx.strokeStyle = 'rgba(255, 236, 205, 0.65)'
@@ -159,10 +157,10 @@ export default function Camera() {
         }
 
         pts.forEach((p, i) => {
-          const key = i === THUMB_TIP || i === INDEX_TIP
+          const key = i === INDEX_TIP || i === MIDDLE_TIP // the two fingers that pick up balls
           ctx.beginPath()
           ctx.arc(p.x, p.y, key ? 11 : 6, 0, Math.PI * 2)
-          ctx.fillStyle = key ? '#ff3d71' : grab ? '#3dff7a' : '#ffe14d'
+          ctx.fillStyle = key ? (held ? '#3dff7a' : '#ff3d71') : held ? '#3dff7a' : '#ffe14d'
           ctx.fill()
           ctx.lineWidth = 2
           ctx.strokeStyle = '#111'
@@ -177,9 +175,9 @@ export default function Camera() {
         ctx.lineJoin = 'round'
         ctx.lineWidth = 6
         ctx.strokeStyle = '#000'
-        const label = `${gestureLabel(hand.gesture)} (${hand.state})`
+        const label = held ? 'Ball held' : 'Ball released'
         ctx.strokeText(label, palm.x, palm.y + 48)
-        ctx.fillStyle = grab ? '#3dff7a' : '#fff'
+        ctx.fillStyle = held ? '#3dff7a' : '#fff'
         ctx.fillText(label, palm.x, palm.y + 48)
       }
     }

@@ -12,8 +12,9 @@ const SPAWN_INTERVAL = 3
 // How quickly balls glide to their slot (higher = snappier).
 const SETTLE_RATE = 12
 
-// A fist closing this many radii from a ball's center still picks it up.
-const GRAB_REACH = 1.25
+// A pinch closing this many radii from a ball's center still picks it up (the pinch point is
+// the midpoint of two fingertips, so this is a little forgiving).
+const GRAB_REACH = 1.5
 const EDGE_MARGIN = 0.03
 // Two held balls merge once their centers are this many radii apart or closer (touching).
 const MERGE_DISTANCE = 2
@@ -66,8 +67,8 @@ export const ballRadiusPx = (cw: number, ch: number) =>
 
 export type HandInput = {
   present: boolean
-  grab: boolean // closed fist
-  palm: { x: number; y: number } // screen pixels
+  pinch: boolean // index and middle fingertips together
+  point: { x: number; y: number } // the pinch point, in screen pixels
 }
 
 const wasGrabbing: Record<HandKey, boolean> = { left: false, right: false }
@@ -89,22 +90,23 @@ function snapToGrid(ball: Ball, cw: number, ch: number) {
   ball.slot = best
 }
 
-// Pick up on open -> fist over a ball, follow the palm while the fist stays closed,
-// snap into the nearest free slot when the hand opens or disappears. When both hands hold a
-// ball and the two touch, they merge into one ball (the sum) that stays in the right hand.
+// Pick up when the fingers pinch together over a ball, follow the pinch point while they stay
+// together, snap into the nearest free slot when the fingers separate or the hand disappears.
+// When both hands hold a ball and the two touch, they merge into one ball (the sum) that
+// stays in the right hand.
 export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: number) {
   const radius = ballRadiusPx(cw, ch)
 
   for (const key of ['left', 'right'] as const) {
     const hand = hands[key]
-    const grabbing = hand.present && hand.grab
+    const grabbing = hand.present && hand.pinch
 
     if (grabbing && !wasGrabbing[key] && !balls.some((b) => b.heldBy === key)) {
       let best: Ball | null = null
       let bestDist = radius * GRAB_REACH
       for (const ball of balls) {
         if (ball.heldBy) continue
-        const d = Math.hypot(hand.palm.x - ball.x * cw, hand.palm.y - ball.y * ch)
+        const d = Math.hypot(hand.point.x - ball.x * cw, hand.point.y - ball.y * ch)
         if (d <= bestDist) {
           best = ball
           bestDist = d
@@ -119,8 +121,8 @@ export function updateBalls(hands: Record<HandKey, HandInput>, cw: number, ch: n
     for (const ball of balls) {
       if (ball.heldBy !== key) continue
       if (grabbing) {
-        ball.x = Math.min(Math.max(hand.palm.x / cw, EDGE_MARGIN), 1 - EDGE_MARGIN)
-        ball.y = Math.min(Math.max(hand.palm.y / ch, EDGE_MARGIN), 1 - EDGE_MARGIN)
+        ball.x = Math.min(Math.max(hand.point.x / cw, EDGE_MARGIN), 1 - EDGE_MARGIN)
+        ball.y = Math.min(Math.max(hand.point.y / ch, EDGE_MARGIN), 1 - EDGE_MARGIN)
       } else {
         ball.heldBy = null
         snapToGrid(ball, cw, ch)
@@ -139,13 +141,13 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   if (!a || !b) return
   if (Math.hypot((a.x - b.x) * cw, (a.y - b.y) * ch) > radius * MERGE_DISTANCE) return
 
-  // The new ball takes the right ball's spot, which is already at the right palm.
+  // The new ball takes the right ball's spot, which is already at the right pinch point.
   balls.splice(balls.indexOf(a), 1)
   balls.splice(balls.indexOf(b), 1)
   balls.push({ id: nextBallId++, value: a.value + b.value, x: b.x, y: b.y, heldBy: 'right', slot: null })
 
-  // The left fist is still closed, so wasGrabbing.left stays true and it cannot re-grab
-  // until it opens and closes again.
+  // The left fingers are still pinched, so wasGrabbing.left stays true and it cannot re-grab
+  // until they separate and pinch again.
   notifyBalls()
 }
 
