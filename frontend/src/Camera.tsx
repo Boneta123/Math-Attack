@@ -143,6 +143,25 @@ export default function Camera() {
         }
       }
 
+      // Ball numbers on top of the gloves, so values stay readable while a hand covers a ball.
+      if (presentHands.length > 0) {
+        const r = ballRadiusPx(cw, ch)
+        ctx.font = `bold ${Math.round(r * 1.1)}px system-ui, sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.lineJoin = 'round'
+        ctx.lineWidth = Math.max(4, r * 0.18)
+        for (const ball of balls) {
+          const text = String(ball.value)
+          const bx = ball.x * cw
+          const by = ball.y * ch
+          ctx.strokeStyle = '#000'
+          ctx.strokeText(text, bx, by)
+          ctx.fillStyle = ball.heldBy ? '#3dff7a' : '#fff'
+          ctx.fillText(text, bx, by)
+        }
+      }
+
       for (const hand of presentHands) {
         const pts = hand.landmarks.map(toCanvas)
         const held = hand.pinch
