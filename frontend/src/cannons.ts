@@ -93,10 +93,14 @@ export function cannonLayout(cw: number, ch: number) {
   return { cell, centerY, laneX, laneEndX, laneXAt, aim, muzzle }
 }
 
+// How far (in cells) the cannon drop zone is moved up from the drawn tile. Only the zone moves.
+const DROP_ZONE_SHIFT = 0.4
+
 // Which free cannon tile (if any) the point (nx, ny), in normalized screen space, is over.
 function cannonUnder(nx: number, ny: number, cw: number, ch: number): number | null {
   const { cell, centerY } = cannonLayout(cw, ch)
-  if (Math.abs(ny - centerY) * ch > cell * 0.65) return null
+  // The drop zone sits DROP_ZONE_SHIFT cells above the drawn tile, since hands cannot reach low on screen.
+  if (Math.abs(ny - (centerY - (DROP_ZONE_SHIFT * cell) / ch)) * ch > cell * 0.65) return null
   const lane = Math.floor(nx * BALL_COLS - 0.5)
   if (lane < 0 || lane >= LANES) return null
   return cannons[lane].value === null ? lane : null
