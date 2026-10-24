@@ -8,9 +8,9 @@ export const BALL_VALUES = [1, 2, 3]
 const COLS = BALL_COLS
 const ROWS = 1
 export const MAX_BALLS = COLS * ROWS
-// Ball radius as a fraction of the smaller cell dimension: sized so all 6 fit with a small gap.
-const BALL_FILL = 0.44
-// Seconds between new balls funnelling in from the sides (while there is room).
+// Ball radius as a fraction of the smaller cell dimension: 3/4 of the size that just fit all 6.
+const BALL_FILL = 0.33
+// Seconds between new balls arriving at the middle of the row (while there is room).
 const SPAWN_INTERVAL = 3
 // How quickly balls glide to their slot (higher = snappier).
 const SETTLE_RATE = 12
@@ -23,7 +23,6 @@ const EDGE_MARGIN = 0.03
 const MERGE_DISTANCE = 2
 
 export type HandKey = 'left' | 'right'
-type Side = 'left' | 'right'
 
 export type Ball = {
   id: number
@@ -160,44 +159,36 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   notifyBalls()
 }
 
-// Bring a new ball in from the left or right edge. It enters the end slot of a lane (row); if
-// that slot is taken, the run of balls next to it slides one slot inward to make room.
-// Returns false when no lane has a free slot.
-function spawnBall(side: Side): boolean {
-  const lanes = Array.from({ length: ROWS }, (_, row) => ({
-    row,
-    cells: Array.from({ length: COLS }, (_, col) => balls.find((b) => b.slot === row * COLS + col) ?? null),
-  }))
-    .filter((lane) => lane.cells.includes(null))
-    // emptiest lane first; on a tie, the lower row
-    .sort((p, q) => p.cells.filter(Boolean).length - q.cells.filter(Boolean).length || q.row - p.row)
-  const lane = lanes[0]
-  if (!lane) return false
-
-  // Column order walking inward from the entry side.
-  const inward = Array.from({ length: COLS }, (_, i) => (side === 'left' ? i : COLS - 1 - i))
-  const free = inward.findIndex((col) => lane.cells[col] === null)
-  for (let k = free; k > 0; k--) {
-    lane.cells[inward[k - 1]]!.slot = lane.row * COLS + inward[k]
-  }
-
-  const slot = lane.row * COLS + inward[0]
+// Bring a new ball in at the middle of the row (hands cannot reach the screen edges), and let it
+// glide to the free slot nearest the middle. Returns false when every slot is taken.
+function spawnBall(): boolean {
+  const taken = new Set(balls.map((b) => b.slot))
+  const free = Array.from({ length: MAX_BALLS }, (_, slot) => slot).filter((slot) => !taken.has(slot))
+  if (free.length === 0) return false
+  const middle = (COLS - 1) / 2
+  const distance = (slot: number) => Math.abs((slot % COLS) - middle)
+  const nearest = Math.min(...free.map(distance))
+  const candidates = free.filter((slot) => distance(slot) === nearest)
+  const slot = candidates[Math.floor(Math.random() * candidates.length)]
   const value = BALL_VALUES[Math.floor(Math.random() * BALL_VALUES.length)]
-  // Starts just off the screen edge, level with its row, then glides in.
-  balls.push({ id: nextBallId++, value, x: side === 'left' ? -0.06 : 1.06, y: slotCenter(slot).y, heldBy: null, slot })
+  balls.push({ id: nextBallId++, value, x: 0.5, y: slotCenter(slot).y, heldBy: null, slot })
   return true
 }
 
 let spawnTimer = 0
-let nextSide: Side = 'left'
 
 // Per-frame step (dt in seconds): bring in new balls over time, and glide resting balls to their slots.
 export function stepBalls(dt: number) {
-  spawnTimer = Math.min(spawnTimer + dt, SPAWN_INTERVAL)
-  if (spawnTimer >= SPAWN_INTERVAL && balls.length < MAX_BALLS && spawnBall(nextSide)) {
+  // The timer only runs while there is room, so a new ball arrives SPAWN_INTERVAL seconds after
+  // room opens up (and every SPAWN_INTERVAL seconds after that while there is room).
+  if (balls.length >= MAX_BALLS) {
     spawnTimer = 0
-    nextSide = nextSide === 'left' ? 'right' : 'left'
-    notifyBalls()
+  } else {
+    spawnTimer += dt
+    if (spawnTimer >= SPAWN_INTERVAL && spawnBall()) {
+      spawnTimer = 0
+      notifyBalls()
+    }
   }
 
   const k = 1 - Math.exp(-SETTLE_RATE * Math.min(dt, 0.1))

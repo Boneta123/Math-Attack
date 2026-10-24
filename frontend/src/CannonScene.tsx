@@ -15,7 +15,7 @@ import {
   subscribeShots,
 } from './cannons'
 import { getIronBase, ironTextureFor } from './ironTextures'
-import { stepShips } from './ships'
+import { SHOT_SIZE, depthScale, stepShips } from './ships'
 
 // Local cannon units: 1 = one grid column. The group is scaled to the tile size every frame, so
 // the cannons always fit their column. The model is built with the barrel pointing down (-y) and
@@ -260,13 +260,16 @@ function Explosion({ lane }: { lane: number }) {
   )
 }
 
-// Balls in flight up their lanes. They start full size at the muzzle and shrink as they travel,
-// so they look like they are flying away from the player into the distance.
+// Balls in flight up their lanes along the same center line as the ships, drawn at the same
+// depthScale as a ship at that height (times SHOT_SIZE, so a ball is always smaller than a ship at
+// the same depth), shrinking as they fly away into the distance.
 function Shots() {
   const { viewport, size } = useThree()
   const { bump } = getIronBase()
   useSyncExternalStore(subscribeShots, getShotsVersion)
   const radius = (ballRadiusPx(size.width, size.height) / size.height) * viewport.height
+  const layout = cannonLayout(size.width, size.height)
+  const unit = layout.cell * (viewport.height / size.height) // one lane in world units, like ships
   const meshes = useMemo(() => new Map<number, THREE.Mesh>(), [])
   const materials = useMemo(() => new Map<number, THREE.MeshStandardMaterial>(), [])
 
@@ -276,8 +279,9 @@ function Shots() {
       const material = materials.get(shot.id)
       if (!mesh || !material) continue
       const p = shotProgress(shot)
-      mesh.position.set((shot.x - 0.5) * viewport.width, (0.5 - shot.y) * viewport.height, 0.3)
-      mesh.scale.setScalar(1 - 0.55 * p)
+      mesh.position.set((layout.laneXAt(shot.lane, shot.y) - 0.5) * viewport.width, (0.5 - shot.y) * viewport.height, 0.3)
+      // Ball diameter = SHOT_SIZE of the ship's width (about one lane at depthScale 1) at this depth.
+      mesh.scale.setScalar((unit * depthScale(shot.y) * SHOT_SIZE) / (2 * radius))
       material.emissiveIntensity = 0.7 * (1 - p) + 0.15
     }
   })

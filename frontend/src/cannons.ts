@@ -39,6 +39,8 @@ export type Shot = {
   // Center in normalized screen space; runs from the muzzle to the end of the lane.
   x: number
   y: number
+  // Where y was before the latest step (for crossing tests against ships).
+  prevY: number
   startX: number
   startY: number
   endX: number
@@ -135,6 +137,7 @@ export function stepCannons(dt: number, held: { x: number; y: number }[], cw: nu
       lane,
       x: muzzle.x,
       y: muzzle.y,
+      prevY: muzzle.y,
       startX: muzzle.x,
       startY: muzzle.y,
       endX: layout.laneEndX(lane),
@@ -149,6 +152,7 @@ export function stepCannons(dt: number, held: { x: number; y: number }[], cw: nu
   for (let i = shots.length - 1; i >= 0; i--) {
     const shot = shots[i]
     shot.age += dt
+    shot.prevY = shot.y
     const t = shot.age / SHOT_TRAVEL_TIME
     if (t >= 1) {
       shots.splice(i, 1)
