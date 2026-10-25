@@ -17,6 +17,7 @@ import {
 } from './cannons'
 import { getIronBase, ironTextureFor } from './ironTextures'
 import { isGameRunning } from './game'
+import { stepDifficulty } from './difficulty'
 import { SHOT_SIZE, depthScale, stepShips } from './ships'
 
 // Local cannon units: 1 = one grid column. The group is scaled to the tile size every frame, so
@@ -303,6 +304,7 @@ export default function Cannons() {
     if (!isGameRunning()) return
     const held = balls.filter((b) => b.heldBy !== null)
     stepCannons(delta, held, size.width, size.height)
+    stepDifficulty(delta)
     stepShips(delta)
   })
 

@@ -1,5 +1,6 @@
 import { BALL_COLS, BALL_ROW_Y, tryLoadCannon } from './cannons'
 import { ACTION_BUFFER_MS } from './handTracking'
+import { BALL_RANGE_SIZE, ballMin } from './difficulty'
 import { applyOperation, getOperation } from './operations'
 
 // Only 1, 2 and 3 ever spawn, cycling in that order; every larger number is made by combining them.
@@ -56,7 +57,7 @@ export const balls: Ball[] = BALL_VALUES.map((value, i) => {
 })
 
 let nextBallId = BALL_VALUES.length + 1
-// Index into BALL_VALUES of the next ball to spawn (the starting rack used 1, 2, 3 already).
+// Which of the range's numbers the next spawned ball takes (the starting rack used 1, 2, 3 already).
 let nextValueIndex = 0
 
 // Adding or removing balls changes what the renderer draws, so it subscribes to this (not per frame).
@@ -200,8 +201,9 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
 // to the balls already there. Returns false when the row is full.
 function spawnBall(): boolean {
   if (balls.length >= MAX_BALLS) return false
-  const value = BALL_VALUES[nextValueIndex]
-  nextValueIndex = (nextValueIndex + 1) % BALL_VALUES.length
+  // Cycle through the three numbers of the current range (1, 2, 3 -> 2, 3, 4 -> ... as the game levels up).
+  const value = ballMin() + nextValueIndex
+  nextValueIndex = (nextValueIndex + 1) % BALL_RANGE_SIZE
   balls.push({ id: nextBallId++, value, x: ENTRY_X, y: slotCenter(0).y, heldBy: null, slot: ENTRY_SLOT })
   packRight()
   return true
