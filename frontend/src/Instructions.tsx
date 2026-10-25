@@ -15,11 +15,11 @@ const STEPS: { title: string; text: string }[] = [
   },
   {
     title: 'Make a number',
-    text: 'Hold a ball in each hand and touch them together. They join into one ball in your right hand, using the operation highlighted in the top-left corner.',
+    text: 'Hold a ball in each hand and touch them together. They join into one ball in your right hand, using the mode highlighted in the top-right corner. Subtraction takes the left ball away from the right one.',
   },
   {
-    title: 'Switch between + and ×',
-    text: 'Close both hands into fists at the same time to switch the operation between addition and multiplication. The highlight in the top-left corner shows which one is active.',
+    title: 'Switch modes',
+    text: 'Stretch out either thumb to move to the next mode: addition, subtraction or multiplication. It works even while you hold a ball. The top-right corner shows the active mode.',
   },
   {
     title: 'Fire the cannon',
@@ -31,11 +31,11 @@ const STEPS: { title: string; text: string }[] = [
   },
   {
     title: 'Chase off birds',
-    text: 'A bird lands and blocks your view. Give a thumbs up with the hand on the other side to get a sickle, then swing it into the bird before it attacks.',
+    text: 'A bird lands and blocks your view. Open the hand on the other side fully, all four fingers out, to get a scythe, then swing it into the bird before it attacks.',
   },
   {
     title: 'Stay alive',
-    text: 'You have 3 hearts. You lose one when a ship reaches the shore or a bird hits you. Lose all 3 and the game is over. Every 30 seconds the numbers get bigger.',
+    text: 'You have 3 hearts. You lose one when a ship reaches the shore or a bird hits you. Lose all 3 and the game is over. Every 60 seconds the numbers get bigger and the ships come faster.',
   },
 ]
 
