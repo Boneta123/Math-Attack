@@ -1,6 +1,9 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { goHome } from './game'
 import { MAX_LIVES, getLives, subscribeLives } from './lives'
+import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
+
+const LABELS: Record<Operation, string> = { '+': 'RH + LH', '*': 'RH × LH' }
 
 function Heart({ lost }: { lost: boolean }) {
   return (
@@ -52,9 +55,10 @@ function ExitButton() {
   )
 }
 
-// Top-left HUD: remaining lives. The mode is picked on the home screen, so it is not shown here.
+// Top-left HUD: remaining lives above the two operations. The highlighted one is used when balls merge.
 export default function Hud() {
   const lives = useSyncExternalStore(subscribeLives, getLives)
+  const selected = useSyncExternalStore(subscribeOperation, getOperation)
   return (
     <>
       <div
@@ -68,11 +72,33 @@ export default function Hud() {
           color: '#f1e6c8',
         }}
       >
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
           {Array.from({ length: MAX_LIVES }, (_, i) => (
             <Heart key={i} lost={i >= lives} />
           ))}
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 124 }}>
+          {OPERATIONS.map((op) => {
+            const active = op === selected
+            return (
+              <div
+                key={op}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  background: active ? 'rgba(60, 44, 20, 0.85)' : 'rgba(0, 0, 0, 0.55)',
+                  border: `2px solid ${active ? '#f2c14e' : 'rgba(255,255,255,0.18)'}`,
+                  boxShadow: active ? '0 0 10px rgba(242, 193, 78, 0.7)' : 'none',
+                  opacity: active ? 1 : 0.7,
+                  fontWeight: active ? 700 : 500,
+                }}
+              >
+                {LABELS[op]}
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, textShadow: '0 1px 3px #000' }}>Close both fists to switch</div>
       </div>
       <ExitButton />
     </>

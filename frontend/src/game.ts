@@ -1,6 +1,7 @@
 // Which screen is showing (the home screen or the game) and resetting the game for a new run.
 import { resetBird } from './bird'
 import { resetCannons } from './cannons'
+import { resetDifficulty } from './difficulty'
 import { getLives, resetLives } from './lives'
 import { resetShips } from './ships'
 
@@ -25,6 +26,7 @@ export const isGameRunning = () => screen === 'playing' && getLives() > 0
 
 // Puts the whole game back to its starting state.
 export function restartGame() {
+  resetDifficulty()
   resetShips()
   resetCannons()
   resetBird()
