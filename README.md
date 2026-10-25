@@ -1,6 +1,7 @@
 # Math-Attack
 
 AR Like math game.
+Used Claude agent to help build aspects of the project.
 
 MediaPipe Install:
 npm install @mediapipe/tasks-vision
