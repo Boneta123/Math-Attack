@@ -1,7 +1,29 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { getScreen, goHome, restartGame, subscribeScreen } from './game'
+import { getGameMode } from './gameMode'
+import { submitRun, type RunResult } from './leaderboard'
 import { getLives, subscribeLives } from './lives'
 import { getScore, subscribeScore } from './score'
+
+const RESULT_TEXT: Record<RunResult, string> = {
+  none: '',
+  top10: 'New top-10 score!',
+  leaderboard: 'You made the overall leaderboard!',
+  offline: 'Could not save your score right now.',
+}
+
+// Sends the finished run to the backend when the end screen appears, then shows how it went. It only
+// exists while the end screen is up, so each run submits once (the ref covers dev double-mounting).
+function RunResultLine() {
+  const [result, setResult] = useState<RunResult | null>(null)
+  const submitted = useRef(false)
+  useEffect(() => {
+    if (submitted.current) return
+    submitted.current = true
+    submitRun(getGameMode().id, getScore()).then(setResult)
+  }, [])
+  return <div style={{ minHeight: 22, fontSize: 18 }}>{result && RESULT_TEXT[result]}</div>
+}
 
 // Full-screen end screen shown once all lives are gone. The game freezes behind it until restart.
 export default function GameOver() {
@@ -40,6 +62,7 @@ export default function GameOver() {
       <div style={{ font: 'bold 64px Georgia, serif', color: '#e5263f', letterSpacing: 4 }}>GAME OVER</div>
       <div style={{ fontSize: 20 }}>The ships reached the shore.</div>
       <div style={{ font: 'bold 36px system-ui, sans-serif', color: '#f2c14e' }}>Score: {score}</div>
+      <RunResultLine />
       <div style={{ display: 'flex', gap: 12 }}>
         <button
           onClick={restartGame}

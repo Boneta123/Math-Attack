@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { chooseGameMode } from './game'
 import Instructions from './Instructions'
+import Leaderboard from './LeaderboardPopup'
+import { getOnline, subscribeOnline } from './online'
+import { getUsername, subscribeUsername } from './player'
 
 const buttonStyle: React.CSSProperties = {
   borderRadius: 10,
@@ -12,19 +15,25 @@ const buttonStyle: React.CSSProperties = {
 // Start screen. Play leads to the game mode picker, then the hand calibration.
 export default function Home() {
   const [showHelp, setShowHelp] = useState(false)
+  const [showBoard, setShowBoard] = useState(false)
+  const username = useSyncExternalStore(subscribeUsername, getUsername)
+  const online = useSyncExternalStore(subscribeOnline, getOnline)
 
-  // Enter plays; while the instructions are open, Enter or Escape closes them instead.
+  // Enter plays; while the instructions or leaderboard are open, Enter or Escape closes them instead.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (showHelp) {
-        if (event.key === 'Enter' || event.key === 'Escape') setShowHelp(false)
+      if (showHelp || showBoard) {
+        if (event.key === 'Enter' || event.key === 'Escape') {
+          setShowHelp(false)
+          setShowBoard(false)
+        }
       } else if (event.key === 'Enter') {
         chooseGameMode()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showHelp])
+  }, [showHelp, showBoard])
 
   return (
     <div
@@ -77,7 +86,22 @@ export default function Home() {
       >
         How to play
       </button>
+      {online === 'online' && (
+        <button
+          onClick={() => setShowBoard(true)}
+          style={{
+            ...buttonStyle,
+            padding: '10px 28px',
+            border: '2px solid rgba(255,255,255,0.3)',
+            background: 'rgba(0, 0, 0, 0.55)',
+          }}
+        >
+          Leaderboard
+        </button>
+      )}
+      {online === 'online' && username && <div style={{ fontSize: 14, opacity: 0.8 }}>Playing as {username}</div>}
       {showHelp && <Instructions onClose={() => setShowHelp(false)} />}
+      {showBoard && <Leaderboard onClose={() => setShowBoard(false)} />}
     </div>
   )
 }

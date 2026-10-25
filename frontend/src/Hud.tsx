@@ -4,6 +4,9 @@ import { MAX_LIVES, getLives, subscribeLives } from './lives'
 import { getScore, subscribeScore } from './score'
 import { getGameMode, subscribeGameMode } from './gameMode'
 import { getOperation, subscribeOperation, type Operation } from './operations'
+import { ScoreList } from './LeaderboardPopup'
+import { getBoard, refreshBoard, subscribeBoards } from './leaderboard'
+import { getOnline, subscribeOnline } from './online'
 
 const SYMBOLS: Record<Operation, { symbol: string; label: string }> = {
   '+': { symbol: '+', label: 'Add' },
@@ -114,10 +117,51 @@ function ModeDisplay() {
   )
 }
 
+// Small see-through panel under the score: the overall top 5 and the player's own top 5 for this mode.
+function LiveBoard() {
+  const { id } = useSyncExternalStore(subscribeGameMode, getGameMode)
+  const board = useSyncExternalStore(subscribeBoards, () => getBoard(id))
+  useEffect(() => {
+    void refreshBoard(id)
+  }, [id])
+
+  const heading: React.CSSProperties = { font: 'bold 12px system-ui, sans-serif', color: '#f2c14e', letterSpacing: 1 }
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 96,
+        left: 14,
+        zIndex: 11,
+        width: 190,
+        padding: '8px 10px',
+        borderRadius: 10,
+        background: 'rgba(0, 0, 0, 0.45)',
+        color: '#f1e6c8',
+        textShadow: '0 1px 3px #000',
+        pointerEvents: 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div>
+        <div style={heading}>TOP 5 OVERALL</div>
+        <ScoreList entries={board.overall} limit={5} size={13} />
+      </div>
+      <div>
+        <div style={heading}>YOUR BEST</div>
+        <ScoreList entries={board.mine} limit={5} size={13} empty="No scores yet" />
+      </div>
+    </div>
+  )
+}
+
 // Top-left HUD: remaining lives with the score under them. The mode display and Exit are on the right.
 export default function Hud() {
   const lives = useSyncExternalStore(subscribeLives, getLives)
   const score = useSyncExternalStore(subscribeScore, getScore)
+  const online = useSyncExternalStore(subscribeOnline, getOnline)
   return (
     <>
       <div
@@ -140,6 +184,7 @@ export default function Hud() {
           Score: {score}
         </div>
       </div>
+      {online === 'online' && <LiveBoard />}
       <ModeDisplay />
       <ExitButton />
     </>

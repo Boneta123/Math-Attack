@@ -5,12 +5,14 @@ import { resetCannons } from './cannons'
 import { resetDifficulty } from './difficulty'
 import { getLives, resetLives } from './lives'
 import { resetOperation } from './operations'
+import { getUsername } from './player'
 import { resetScore } from './score'
 import { resetShips } from './ships'
 
-export type Screen = 'home' | 'modeSelect' | 'calibrating' | 'playing'
+export type Screen = 'username' | 'home' | 'modeSelect' | 'calibrating' | 'playing'
 
-let screen: Screen = 'home'
+// Players without a saved name start on the username screen.
+let screen: Screen = getUsername() ? 'home' : 'username'
 
 const listeners = new Set<() => void>()
 export const subscribeScreen = (listener: () => void) => {
@@ -56,5 +58,10 @@ export function startGame() {
 
 export function goHome() {
   restartGame()
+  setScreen(getUsername() ? 'home' : 'username')
+}
+
+// After the player has picked a name (see Username.tsx).
+export function finishUsername() {
   setScreen('home')
 }

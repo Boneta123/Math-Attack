@@ -8,6 +8,7 @@ import Home from './Home'
 import Calibration from './Calibration'
 import ModeSelect from './ModeSelect'
 import Hud from './Hud'
+import Username from './Username'
 
 export default function App() {
   const screen = useSyncExternalStore(subscribeScreen, getScreen)
@@ -16,6 +17,7 @@ export default function App() {
       <Camera />
       <BeachScene />
       <HandZoneBalls />
+      {screen === 'username' && <Username />}
       {screen === 'home' && <Home />}
       {screen === 'modeSelect' && <ModeSelect />}
       {screen === 'calibrating' && <Calibration />}
