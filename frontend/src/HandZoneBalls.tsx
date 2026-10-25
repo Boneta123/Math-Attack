@@ -6,6 +6,7 @@ import { ballRadiusPx, balls, getBallsVersion, stepBalls, subscribeBalls } from 
 import BirdScene from './BirdScene'
 import Cannons from './CannonScene'
 import GloveScene from './GloveScene'
+import RackScene from './RackScene'
 import { getIronBase, ironTextureFor } from './ironTextures'
 import Ships from './ShipScene'
 
@@ -19,6 +20,8 @@ function Cannonballs() {
   // Lookups from ball id to its mesh and material, so merging can add and remove balls.
   const meshes = useMemo(() => new Map<number, THREE.Mesh>(), [])
   const materials = useMemo(() => new Map<number, THREE.MeshStandardMaterial>(), [])
+  // Last world x of each ball, so a ball that moves along the rack spins by the distance it rolled.
+  const lastX = useMemo(() => new Map<number, number>(), [])
 
   // Balls live in normalized screen space (balls.ts); mirror that into world space every frame.
   useFrame((_, delta) => {
@@ -27,8 +30,14 @@ function Cannonballs() {
       const mesh = meshes.get(ball.id)
       const material = materials.get(ball.id)
       if (!mesh || !material) continue
-      mesh.position.set((ball.x - 0.5) * viewport.width, (0.5 - ball.y) * viewport.height, 0)
+      const worldX = (ball.x - 0.5) * viewport.width
+      mesh.position.set(worldX, (0.5 - ball.y) * viewport.height, 0)
       const held = ball.heldBy !== null
+      // Rolling without slipping: turn by distance / radius (clockwise when rolling right). A ball in a
+      // hand is carried, not rolled.
+      const previous = lastX.get(ball.id)
+      if (previous !== undefined && !held) mesh.rotation.z -= (worldX - previous) / radius
+      lastX.set(ball.id, worldX)
       mesh.scale.setScalar(held ? 1.08 : 1)
       material.emissiveIntensity = held ? 0.45 : 0
     }
@@ -82,6 +91,7 @@ export default function HandZoneBalls() {
         <Lightformer form="rect" intensity={2.2} color="#ffd9a8" position={[4, -1, 3]} scale={[4, 2, 1]} />
         <Lightformer form="ring" intensity={2.5} color="#8fb0c8" position={[0, 4, -4]} scale={4} />
       </Environment>
+      <RackScene />
       <Cannonballs />
       <Ships />
       <Cannons />
