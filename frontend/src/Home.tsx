@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { beginCalibration } from './game'
+import Instructions from './Instructions'
 
 const buttonStyle: React.CSSProperties = {
   borderRadius: 10,
@@ -10,13 +11,20 @@ const buttonStyle: React.CSSProperties = {
 
 // Start screen. There is one way to play: addition and multiplication together, switched in game.
 export default function Home() {
+  const [showHelp, setShowHelp] = useState(false)
+
+  // Enter plays; while the instructions are open, Enter or Escape closes them instead.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') beginCalibration()
+      if (showHelp) {
+        if (event.key === 'Enter' || event.key === 'Escape') setShowHelp(false)
+      } else if (event.key === 'Enter') {
+        beginCalibration()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [showHelp])
 
   return (
     <div
@@ -58,6 +66,18 @@ export default function Home() {
         Play
       </button>
       <div style={{ fontSize: 13, opacity: 0.7, marginTop: -16 }}>or press Enter</div>
+      <button
+        onClick={() => setShowHelp(true)}
+        style={{
+          ...buttonStyle,
+          padding: '10px 28px',
+          border: '2px solid rgba(255,255,255,0.3)',
+          background: 'rgba(0, 0, 0, 0.55)',
+        }}
+      >
+        How to play
+      </button>
+      {showHelp && <Instructions onClose={() => setShowHelp(false)} />}
     </div>
   )
 }

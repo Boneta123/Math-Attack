@@ -211,6 +211,24 @@ function spawnBall(): boolean {
 
 let spawnTimer = 0
 
+// Puts the starting rack (1, 2, 3 at the right end of the row) back for a new game, dropping any
+// held or combined balls. Call after resetDifficulty so later spawns start from the lowest range.
+export function resetBalls() {
+  balls.length = 0
+  BALL_VALUES.forEach((value, i) => {
+    const slot = COLS - BALL_VALUES.length + i
+    balls.push({ id: nextBallId++, value, ...slotCenter(slot), heldBy: null, slot })
+  })
+  nextValueIndex = 0
+  spawnTimer = 0
+  for (const key of ['left', 'right'] as const) {
+    closedSince[key] = null
+    openSince[key] = null
+    mustReopen[key] = false
+  }
+  notifyBalls()
+}
+
 // Per-frame step (dt in seconds): bring in new balls over time, and glide resting balls to their slots.
 export function stepBalls(dt: number) {
   // The timer only runs while there is room, so a new ball arrives SPAWN_INTERVAL seconds after
