@@ -3,6 +3,7 @@
 // open a hand fully (a big scythe replaces the glove) and swing its blade into the bird.
 import { cannonLayout } from './cannons'
 import { ACTION_BUFFER_MS, displayToScreen, handAnchors } from './handTracking'
+import { BIRD_POINTS, addScore } from './score'
 
 export type BirdSide = 'left' | 'right'
 type HandKey = 'left' | 'right'
@@ -132,6 +133,7 @@ export function stepBird(dt: number, cw: number, ch: number, now = performance.n
     const dy = (blade.y - perch.y * ch) / (BIRD_HIT_HALF_HEIGHT * cell)
     if (dx * dx + dy * dy <= 1) {
       bird.state = 'leaving'
+      addScore(BIRD_POINTS)
       return
     }
   }

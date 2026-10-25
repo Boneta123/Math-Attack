@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { goHome } from './game'
 import { MAX_LIVES, getLives, subscribeLives } from './lives'
+import { getScore, subscribeScore } from './score'
 import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
 
 const SYMBOLS: Record<Operation, { symbol: string; label: string }> = {
@@ -109,9 +110,10 @@ function ModeDisplay() {
   )
 }
 
-// Top-left HUD: remaining lives. The mode display and Exit are on the right.
+// Top-left HUD: remaining lives with the score under them. The mode display and Exit are on the right.
 export default function Hud() {
   const lives = useSyncExternalStore(subscribeLives, getLives)
+  const score = useSyncExternalStore(subscribeScore, getScore)
   return (
     <>
       <div
@@ -129,6 +131,9 @@ export default function Hud() {
           {Array.from({ length: MAX_LIVES }, (_, i) => (
             <Heart key={i} lost={i >= lives} />
           ))}
+        </div>
+        <div style={{ marginTop: 8, font: 'bold 26px system-ui, sans-serif', textShadow: '0 2px 4px #000' }}>
+          Score: {score}
         </div>
       </div>
       <ModeDisplay />

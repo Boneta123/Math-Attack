@@ -27,11 +27,11 @@ const STEPS: { title: string; text: string }[] = [
   },
   {
     title: 'Sink the ships',
-    text: 'Each ship carries a number. Hit it with the same number to sink it. A wrong number bounces off.',
+    text: 'Each ship carries a number. Hit it with the same number to sink it and score that many points. A wrong number bounces off.',
   },
   {
     title: 'Chase off birds',
-    text: 'A bird lands and blocks your view. Open the hand on the other side fully, all four fingers out, to get a scythe, then swing it into the bird before it attacks.',
+    text: 'A bird lands and blocks your view. Open the hand on the other side fully, all four fingers out, to get a scythe, then swing it into the bird before it attacks. Each bird is worth 10 points.',
   },
   {
     title: 'Stay alive',

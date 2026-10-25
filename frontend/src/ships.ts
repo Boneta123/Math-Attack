@@ -2,6 +2,7 @@
 // number sinks the ship; any other number is consumed and the ship sails on.
 import { LANES, LANE_END_Y, notifyShots, shots } from './cannons'
 import { shipRange, shipSpawnInterval } from './difficulty'
+import { addScore } from './score'
 
 // Normalized screen y of the waterline (two thirds of the way down, matching the beach shader).
 export const SHORE_Y = 2 / 3
@@ -151,6 +152,7 @@ export function stepShips(dt: number) {
     if (ship.value === shot.value) {
       ship.state = 'sinking'
       ship.sunkFor = 0
+      addScore(ship.value)
     } else {
       ship.flash = FLASH_TIME
     }

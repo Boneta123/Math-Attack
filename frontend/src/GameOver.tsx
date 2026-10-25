@@ -1,10 +1,12 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { getScreen, goHome, restartGame, subscribeScreen } from './game'
 import { getLives, subscribeLives } from './lives'
+import { getScore, subscribeScore } from './score'
 
 // Full-screen end screen shown once all lives are gone. The game freezes behind it until restart.
 export default function GameOver() {
   const lives = useSyncExternalStore(subscribeLives, getLives)
+  const score = useSyncExternalStore(subscribeScore, getScore)
   const screen = useSyncExternalStore(subscribeScreen, getScreen)
   const over = screen === 'playing' && lives === 0
 
@@ -37,6 +39,7 @@ export default function GameOver() {
     >
       <div style={{ font: 'bold 64px Georgia, serif', color: '#e5263f', letterSpacing: 4 }}>GAME OVER</div>
       <div style={{ fontSize: 20 }}>The ships reached the shore.</div>
+      <div style={{ font: 'bold 36px system-ui, sans-serif', color: '#f2c14e' }}>Score: {score}</div>
       <div style={{ display: 'flex', gap: 12 }}>
         <button
           onClick={restartGame}

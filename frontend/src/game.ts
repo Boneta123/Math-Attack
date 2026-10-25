@@ -4,6 +4,7 @@ import { resetBird } from './bird'
 import { resetCannons } from './cannons'
 import { resetDifficulty } from './difficulty'
 import { getLives, resetLives } from './lives'
+import { resetScore } from './score'
 import { resetShips } from './ships'
 
 export type Screen = 'home' | 'calibrating' | 'playing'
@@ -33,6 +34,7 @@ export function restartGame() {
   resetCannons()
   resetBird()
   resetLives()
+  resetScore()
 }
 
 // Play on the home screen: line the hands up in the outlines first (see Calibration.tsx).
