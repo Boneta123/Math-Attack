@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { ballRadiusPx, balls, updateBalls } from './balls'
-import { drawGlove } from './glove'
 import {
   HAND_CONNECTIONS,
   INDEX_TIP,
@@ -72,9 +71,6 @@ export default function Camera() {
     let lastVideoTime = -1
     let lastTimestamp = 0
     let wasVisible = false
-    // Gloves are drawn opaque here first, then composited over the main canvas (see draw).
-    const gloveLayer = document.createElement('canvas')
-
     const draw = () => {
       const video = videoRef.current
       const canvas = canvasRef.current
@@ -112,45 +108,13 @@ export default function Camera() {
       // Hands only grab balls during a game, not on the home, calibration or game over screens.
       if (isGameRunning()) updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
 
-      // Gloves: opaque everywhere except over the balls, where they turn see-through so the
-      // balls stay visible. Drawn on a layer first so overlapping glove parts do not stack alpha.
-      // A hand showing a sickle (thumbs up) gets no glove at all: the sickle replaces it. A hand reading
-      // Thumb_Up is hidden right away too, so the glove does not wait on the bird step to catch up.
+      // The gloves themselves are 3D (GloveScene.tsx, drawn with the balls). A hand showing a scythe
+      // (thumbs up) gets no glove at all: the scythe replaces it. A hand reading Thumb_Up is skipped
+      // right away too, so nothing waits on the bird step to catch up.
       const sickleHands = getSickleHands().map((key) => handAnchors[key])
       const presentHands = [handAnchors.left, handAnchors.right].filter(
         (h) => h.present && h.gesture !== 'Thumb_Up' && !sickleHands.includes(h),
       )
-      if (presentHands.length > 0) {
-        if (gloveLayer.width !== canvas.width || gloveLayer.height !== canvas.height) {
-          gloveLayer.width = canvas.width
-          gloveLayer.height = canvas.height
-        }
-        const lg = gloveLayer.getContext('2d')
-        if (lg) {
-          lg.setTransform(dpr, 0, 0, dpr, 0, 0)
-          lg.clearRect(0, 0, cw, ch)
-          for (const hand of presentHands) drawGlove(lg, hand.landmarks.map(toCanvas))
-
-          const radius = ballRadiusPx(cw, ch)
-          const circles = new Path2D()
-          for (const ball of balls) circles.arc(ball.x * cw, ball.y * ch, radius, 0, Math.PI * 2)
-          const blit = () => ctx.drawImage(gloveLayer, 0, 0, cw, ch)
-
-          ctx.save()
-          const outside = new Path2D()
-          outside.rect(0, 0, cw, ch)
-          outside.addPath(circles)
-          ctx.clip(outside, 'evenodd')
-          blit()
-          ctx.restore()
-
-          ctx.save()
-          ctx.clip(circles)
-          ctx.globalAlpha = 0.35
-          blit()
-          ctx.restore()
-        }
-      }
 
       // Ball numbers on top of the gloves, so values stay readable while a hand covers a ball.
       if (presentHands.length > 0) {
