@@ -6,6 +6,8 @@ create extension if not exists pgcrypto;
 create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   username text not null check (username ~ '^[A-Za-z0-9_]{3,16}$'),
+  -- `scrypt$<salt>$<hash>`, written by the API; never returned to the browser.
+  password_hash text not null,
   created_at timestamptz not null default now()
 );
 create unique index if not exists players_username_lower_key on players (lower(username));
