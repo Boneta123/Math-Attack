@@ -6,6 +6,8 @@ The backend is Express, not the FastAPI named in `claude.md`; the database is st
 2. Copy `.env.example` to `.env` and fill in the project URL and service-role key (backend only, never the frontend).
 3. `npm install`, then `npm run dev` (port 3001). `npm test` runs the route tests.
 
-Endpoints: `POST /api/players`, `POST /api/scores/:mode`, `POST /api/leaderboard/:mode`,
+Endpoints: `POST /api/players` (sign up), `POST /api/login`, `POST /api/scores/:mode`, `POST /api/leaderboard/:mode`,
 `GET /api/leaderboard/:mode`, `GET /api/scores/:mode/:username`. Modes: `addition`, `mixed`, `challenge`.
+Passwords are scrypt-hashed. The two score POSTs use `Authorization: Basic base64(username:password)`.
+An older database without passwords needs `reset-and-add-passwords.sql` run once by hand; it deletes all data.
 The leaderboard holds the top 25 single-run scores per mode; each player keeps their best 10.

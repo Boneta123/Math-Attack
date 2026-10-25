@@ -4,7 +4,7 @@
 import { ApiError, getLeaderboard, getMyScores, postLeaderboard, postScore, type Entry } from './api'
 import { GAME_MODES, type GameModeId } from './gameMode'
 import { getOnline } from './online'
-import { getUsername, setUsername } from './player'
+import { getAccount, getUsername, setAccount } from './player'
 
 export const BOARD_SIZE = 25
 
@@ -42,11 +42,11 @@ export async function refreshBoard(mode: GameModeId) {
 export type RunResult = 'none' | 'top10' | 'leaderboard' | 'offline'
 
 export async function submitRun(mode: GameModeId, score: number): Promise<RunResult> {
-  const username = getUsername()
+  const account = getAccount()
   // Offline play has no scores to save.
-  if (getOnline() !== 'online' || !username || score < 1) return 'none'
+  if (getOnline() !== 'online' || !account || score < 1) return 'none'
   try {
-    const { accepted } = await postScore(mode, username, score)
+    const { accepted } = await postScore(mode, account, score)
     if (!accepted) return 'none'
 
     // Only a score above the lowest on a full board (or any score on a board with room) is worth posting.
@@ -54,14 +54,14 @@ export async function submitRun(mode: GameModeId, score: number): Promise<RunRes
     const lowest = overall.length >= BOARD_SIZE ? overall[overall.length - 1].score : 0
     let result: RunResult = 'top10'
     if (score > lowest) {
-      const posted = await postLeaderboard(mode, username, score)
+      const posted = await postLeaderboard(mode, account, score)
       if (posted.accepted) result = 'leaderboard'
     }
     await refreshBoard(mode)
     return result
   } catch (error) {
-    // The saved name no longer exists on the server (for example a reset database): ask for a new one.
-    if (error instanceof ApiError && error.status === 404) setUsername(null)
+    // The saved login no longer works (for example a reset database): sign in again from the home screen.
+    if (error instanceof ApiError && (error.status === 401 || error.status === 404)) setAccount(null)
     return 'offline'
   }
 }

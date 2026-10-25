@@ -1,9 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { chooseGameMode } from './game'
+import { chooseGameMode, goHome } from './game'
 import Instructions from './Instructions'
 import Leaderboard from './LeaderboardPopup'
 import { getOnline, subscribeOnline } from './online'
-import { getUsername, subscribeUsername } from './player'
+import { getUsername, setAccount, subscribeUsername } from './player'
 
 const buttonStyle: React.CSSProperties = {
   borderRadius: 10,
@@ -99,7 +99,28 @@ export default function Home() {
           Leaderboard
         </button>
       )}
-      {online === 'online' && username && <div style={{ fontSize: 14, opacity: 0.8 }}>Playing as {username}</div>}
+      {online === 'online' && username && (
+        <div style={{ fontSize: 14, opacity: 0.8 }}>
+          Playing as {username} ·{' '}
+          <button
+            onClick={() => {
+              setAccount(null)
+              goHome()
+            }}
+            style={{
+              border: 'none',
+              background: 'none',
+              padding: 0,
+              color: 'inherit',
+              font: 'inherit',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+            }}
+          >
+            Log out
+          </button>
+        </div>
+      )}
       {showHelp && <Instructions onClose={() => setShowHelp(false)} />}
       {showBoard && <Leaderboard onClose={() => setShowBoard(false)} />}
     </div>

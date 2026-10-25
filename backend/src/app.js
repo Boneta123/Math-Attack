@@ -1,5 +1,6 @@
 import cors from 'cors'
 import express from 'express'
+import { hashPassword, verifyPassword } from './password.js'
 
 const MODES = ['addition', 'mixed', 'challenge']
 const USERNAME = /^[A-Za-z0-9_]{3,16}$/
@@ -13,6 +14,17 @@ const BAD_INPUT = '22023'
 const validMode = (mode) => MODES.includes(mode)
 const validUsername = (name) => typeof name === 'string' && USERNAME.test(name)
 const validScore = (score) => Number.isInteger(score) && score >= 1 && score <= MAX_SCORE
+const validPassword = (password) => typeof password === 'string' && password.length >= 8 && password.length <= 72
+
+// Reads `Authorization: Basic base64(username:password)`. Splits on the first colon only, since a
+// password may contain colons.
+function parseBasic(header) {
+  if (typeof header !== 'string' || !header.startsWith('Basic ')) return null
+  const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8')
+  const split = decoded.indexOf(':')
+  if (split < 1) return null
+  return { username: decoded.slice(0, split), password: decoded.slice(split + 1) }
+}
 
 // Wraps one row of `scores_*` / `leaderboard_*` joined with its player into the shape the game uses.
 const toEntry = (row) => ({ username: row.players.username, score: row.score })
@@ -39,24 +51,56 @@ export function createApp(supabase, { frontendOrigin = 'http://localhost:5173' }
     res.json({ ok: true })
   })
 
+  // Checks a username and password against the stored hash. Returns the stored username, or null for a
+  // wrong password or an unknown user (the work done is the same, so timing does not tell them apart).
+  const authenticate = async (username, password) => {
+    if (!validUsername(username) || typeof password !== 'string') return null
+    const { data, error } = await supabase
+      .from('players')
+      .select('username, password_hash')
+      // `_` is a LIKE wildcard, so escape it to match the username exactly (ignoring case).
+      .ilike('username', username.replaceAll('_', '\\_'))
+      .maybeSingle()
+    if (error) throw error
+    const ok = await verifyPassword(data?.password_hash ?? null, password)
+    return ok ? data.username : null
+  }
+  const wrongLogin = (res) => res.status(401).json({ error: 'Invalid username or password' })
+
   app.post('/api/players', async (req, res) => {
-    const { username } = req.body ?? {}
+    const { username, password } = req.body ?? {}
     if (!validUsername(username)) {
       return res.status(400).json({ error: 'Username must be 3-16 letters, numbers or underscores' })
     }
-    const { data, error } = await supabase.from('players').insert({ username }).select('username').single()
+    if (!validPassword(password)) {
+      return res.status(400).json({ error: 'Password must be 8-72 characters' })
+    }
+    const { data, error } = await supabase
+      .from('players')
+      .insert({ username, password_hash: await hashPassword(password) })
+      .select('username')
+      .single()
     if (error) return fail(res, error)
     res.status(201).json({ username: data.username })
   })
 
-  // Both score endpoints share the same body check and just call a different database function.
+  app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body ?? {}
+    const name = await authenticate(username, password)
+    if (!name) return wrongLogin(res)
+    res.json({ username: name })
+  })
+
+  // Both score endpoints share the same checks and just call a different database function. The player
+  // is whoever the Basic auth header proves they are; a username in the body is ignored.
   const submit = (fn) => async (req, res) => {
     const { mode } = req.params
-    const { username, score } = req.body ?? {}
-    if (!validMode(mode) || !validUsername(username) || !validScore(score)) {
-      return res.status(400).json({ error: 'Invalid request' })
-    }
-    const { data, error } = await supabase.rpc(fn, { p_mode: mode, p_username: username, p_score: score })
+    const { score } = req.body ?? {}
+    if (!validMode(mode) || !validScore(score)) return res.status(400).json({ error: 'Invalid request' })
+    const credentials = parseBasic(req.get('authorization'))
+    const name = credentials && (await authenticate(credentials.username, credentials.password))
+    if (!name) return wrongLogin(res)
+    const { data, error } = await supabase.rpc(fn, { p_mode: mode, p_username: name, p_score: score })
     if (error) return fail(res, error)
     res.json({ accepted: data === true })
   }
@@ -96,6 +140,14 @@ export function createApp(supabase, { frontendOrigin = 'http://localhost:5173' }
       .limit(10)
     if (error) return fail(res, error)
     res.json(data.map(toEntry))
+  })
+
+  // Anything thrown inside a route (such as a database error while checking a password) ends up here.
+  app.use((error, _req, res, _next) => {
+    // Bad JSON and oversized bodies are the caller's mistake; everything else is ours.
+    if (error.status >= 400 && error.status < 500) return res.status(error.status).json({ error: 'Invalid request' })
+    console.error(error)
+    res.status(500).json({ error: 'Server error' })
   })
 
   return app
