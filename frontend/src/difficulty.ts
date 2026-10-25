@@ -1,7 +1,9 @@
 // The game gets harder the longer a run lasts. Every LEVEL_SECONDS of play the range of numbers on
 // the ships moves up by SHIP_RANGE_STEP at both ends, and the numbers the balls spawn with move up by
 // BALL_RANGE_STEP at both ends (1, 2, 3 -> 2, 3, 4 -> 3, 4, 5 ...), and the time between ship spawns shrinks by
-// SHIP_INTERVAL_STEP down to a floor. Time only counts while a game is running.
+// SHIP_INTERVAL_STEP down to a floor. Time only counts while a game is running, and only in a game mode
+// that ramps up (see gameMode.ts); the other modes stay at level 0.
+import { getGameMode } from './gameMode'
 
 export const LEVEL_SECONDS = 60
 export const SHIP_RANGE_STEP = 4
@@ -22,6 +24,7 @@ let elapsed = 0
 
 // Per-frame step (dt in seconds); call only while the game is running.
 export function stepDifficulty(dt: number) {
+  if (!getGameMode().ramps) return
   elapsed += Math.min(dt, 0.1)
 }
 

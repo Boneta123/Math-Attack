@@ -2,7 +2,8 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { goHome } from './game'
 import { MAX_LIVES, getLives, subscribeLives } from './lives'
 import { getScore, subscribeScore } from './score'
-import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
+import { getGameMode, subscribeGameMode } from './gameMode'
+import { getOperation, subscribeOperation, type Operation } from './operations'
 
 const SYMBOLS: Record<Operation, { symbol: string; label: string }> = {
   '+': { symbol: '+', label: 'Add' },
@@ -60,10 +61,11 @@ function ExitButton() {
   )
 }
 
-// Three large boxes under the Exit button showing the current mode. They are not selectable: stretch
-// out either thumb to move to the next one.
+// Large boxes under the Exit button, one per operation the game mode allows, showing the current one.
+// They are not selectable: stretch out either thumb to move to the next one.
 function ModeDisplay() {
   const selected = useSyncExternalStore(subscribeOperation, getOperation)
+  const { operations } = useSyncExternalStore(subscribeGameMode, getGameMode)
   return (
     <div
       style={{
@@ -78,7 +80,7 @@ function ModeDisplay() {
         pointerEvents: 'none',
       }}
     >
-      {OPERATIONS.map((op) => {
+      {operations.map((op) => {
         const active = op === selected
         return (
           <div
@@ -103,9 +105,11 @@ function ModeDisplay() {
           </div>
         )
       })}
-      <div style={{ font: '13px system-ui, sans-serif', textAlign: 'center', opacity: 0.85, color: '#f1e6c8', textShadow: '0 1px 3px #000' }}>
-        Stretch out a thumb to switch
-      </div>
+      {operations.length > 1 && (
+        <div style={{ font: '13px system-ui, sans-serif', textAlign: 'center', opacity: 0.85, color: '#f1e6c8', textShadow: '0 1px 3px #000' }}>
+          Stretch out a thumb to switch
+        </div>
+      )}
     </div>
   )
 }

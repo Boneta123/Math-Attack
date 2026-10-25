@@ -6,6 +6,7 @@ import GameOver from './GameOver'
 import { getScreen, subscribeScreen } from './game'
 import Home from './Home'
 import Calibration from './Calibration'
+import ModeSelect from './ModeSelect'
 import Hud from './Hud'
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
       <BeachScene />
       <HandZoneBalls />
       {screen === 'home' && <Home />}
+      {screen === 'modeSelect' && <ModeSelect />}
       {screen === 'calibrating' && <Calibration />}
       {screen === 'playing' && <Hud />}
       <GameOver />

@@ -4,10 +4,11 @@ import { resetBird } from './bird'
 import { resetCannons } from './cannons'
 import { resetDifficulty } from './difficulty'
 import { getLives, resetLives } from './lives'
+import { resetOperation } from './operations'
 import { resetScore } from './score'
 import { resetShips } from './ships'
 
-export type Screen = 'home' | 'calibrating' | 'playing'
+export type Screen = 'home' | 'modeSelect' | 'calibrating' | 'playing'
 
 let screen: Screen = 'home'
 
@@ -35,9 +36,15 @@ export function restartGame() {
   resetBird()
   resetLives()
   resetScore()
+  resetOperation()
 }
 
-// Play on the home screen: line the hands up in the outlines first (see Calibration.tsx).
+// Play on the home screen: pick a game mode first (see ModeSelect.tsx).
+export function chooseGameMode() {
+  setScreen('modeSelect')
+}
+
+// After picking a game mode: line the hands up in the outlines (see Calibration.tsx).
 export function beginCalibration() {
   setScreen('calibrating')
 }

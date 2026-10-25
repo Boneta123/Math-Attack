@@ -2,8 +2,12 @@
 
 const STEPS: { title: string; text: string; image?: { src: string; alt: string; caption: string } }[] = [
   {
+    title: 'Pick a game mode',
+    text: 'After pressing Play, choose Addition, Add & Multiply, or Challenge. Only Challenge gets harder over time.',
+  },
+  {
     title: 'Get in position',
-    text: 'After pressing Play, hold both open hands inside the outlines for 3 seconds. The game starts on its own.',
+    text: 'Next, hold both open hands inside the outlines for 3 seconds. The game starts on its own.',
   },
   {
     title: 'Keep your hands upright',
@@ -24,11 +28,11 @@ const STEPS: { title: string; text: string; image?: { src: string; alt: string; 
   },
   {
     title: 'Make a number',
-    text: 'Hold a ball in each hand and touch them together. They join into one ball in your right hand, using the mode highlighted in the top-right corner. Subtraction takes the left ball away from the right one.',
+    text: 'Hold a ball in each hand and touch them together. They join into one ball in your right hand, using the operation highlighted in the top-right corner. Subtraction takes the left ball away from the right one.',
   },
   {
-    title: 'Switch modes',
-    text: 'Stretch out either thumb to move to the next mode: addition, subtraction or multiplication. It works even while you hold a ball. The top-right corner shows the active mode.',
+    title: 'Switch operations',
+    text: 'Stretch out either thumb to move to the next operation your game mode allows (addition, subtraction or multiplication). It works even while you hold a ball. The top-right corner shows the active one.',
   },
   {
     title: 'Fire the cannon',
@@ -44,7 +48,7 @@ const STEPS: { title: string; text: string; image?: { src: string; alt: string; 
   },
   {
     title: 'Stay alive',
-    text: 'You have 3 hearts. You lose one when a ship reaches the shore or a bird hits you. Lose all 3 and the game is over. Every 60 seconds the numbers get bigger and the ships come faster.',
+    text: 'You have 3 hearts. You lose one when a ship reaches the shore or a bird hits you. Lose all 3 and the game is over. In Challenge mode, every 60 seconds the numbers get bigger and the ships come faster.',
   },
 ]
 

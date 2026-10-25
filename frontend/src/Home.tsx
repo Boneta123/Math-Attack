@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { beginCalibration } from './game'
+import { chooseGameMode } from './game'
 import Instructions from './Instructions'
 
 const buttonStyle: React.CSSProperties = {
@@ -9,7 +9,7 @@ const buttonStyle: React.CSSProperties = {
   font: 'bold 18px system-ui, sans-serif',
 }
 
-// Start screen. There is one way to play: addition, subtraction and multiplication together, switched in game.
+// Start screen. Play leads to the game mode picker, then the hand calibration.
 export default function Home() {
   const [showHelp, setShowHelp] = useState(false)
 
@@ -19,7 +19,7 @@ export default function Home() {
       if (showHelp) {
         if (event.key === 'Enter' || event.key === 'Escape') setShowHelp(false)
       } else if (event.key === 'Enter') {
-        beginCalibration()
+        chooseGameMode()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -50,11 +50,11 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 15, opacity: 0.85, textAlign: 'center', maxWidth: 420, lineHeight: 1.5 }}>
-        Merge balls with addition, subtraction and multiplication. Stretch out either thumb to switch between them. Open a hand fully to swing the scythe.
+        Merge balls to match the numbers on the ships and sink them before they reach the shore.
       </div>
 
       <button
-        onClick={beginCalibration}
+        onClick={chooseGameMode}
         style={{
           ...buttonStyle,
           padding: '14px 56px',

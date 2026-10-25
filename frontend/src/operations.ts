@@ -1,6 +1,8 @@
-// The arithmetic operation (the game mode) used when the two held balls merge. Stretching out either
-// thumb moves it up the list; the three big boxes in the top right only show which one is active. A merge reads
+// The arithmetic operation used when the two held balls merge. Stretching out either thumb moves it up
+// the list of operations the game mode allows (see gameMode.ts); the big boxes in the top right only show
+// which one is active. A merge reads
 // "right op left" (the right-hand ball is the one acted on), and the right hand keeps the result.
+import { getGameMode } from './gameMode'
 import { ACTION_BUFFER_MS, isThumbOut, type HandAnchors } from './handTracking'
 
 export type Operation = '+' | '-' | '*'
@@ -21,6 +23,9 @@ function setOperation(op: Operation) {
   version++
   listeners.forEach((listener) => listener())
 }
+
+// Back to the game mode's first operation, for a new game.
+export const resetOperation = () => setOperation(getGameMode().operations[0])
 
 // right op left, or null when the result is below 1 (no zero or negative balls).
 export function applyOperation(op: Operation, right: number, left: number): number | null {
@@ -44,7 +49,9 @@ export function updateThumbSwitch(hands: HandAnchors[], now = performance.now())
   thumbOutSince ??= now
   if (!thumbHandled && now - thumbOutSince >= ACTION_BUFFER_MS) {
     thumbHandled = true
-    setOperation(OPERATIONS[(OPERATIONS.indexOf(current) - 1 + OPERATIONS.length) % OPERATIONS.length])
+    const available = getGameMode().operations
+    if (available.length < 2) return
+    setOperation(available[(available.indexOf(current) - 1 + available.length) % available.length])
   }
 }
 export const getOperationVersion = () => version
