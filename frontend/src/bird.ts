@@ -1,6 +1,6 @@
 // A bird flies in from the enemy lines, lands, and blocks the view of the three lanes on one side.
 // It is purely visual: ships and shots keep working underneath. The only cure is the OPPOSITE hand:
-// hold a thumbs up (a big sickle replaces the glove) and swing its blade into the bird.
+// open a hand fully (a big scythe replaces the glove) and swing its blade into the bird.
 import { cannonLayout } from './cannons'
 import { ACTION_BUFFER_MS, displayToScreen, handAnchors } from './handTracking'
 
@@ -62,7 +62,7 @@ export function resetBird() {
 // The hand that can cure a bird: the one on the opposite side of the screen.
 export const cureHand = (side: BirdSide): HandKey => (side === 'right' ? 'left' : 'right')
 
-// Hands showing the sickle: any hand that has held a thumbs up long enough, bird or no bird.
+// Hands showing the scythe: any hand that has held an open palm (all four fingers out) long enough, bird or no bird.
 let sickleHands: HandKey[] = []
 export const getSickleHands = () => sickleHands
 
@@ -75,7 +75,7 @@ export function stepBird(dt: number, cw: number, ch: number, now = performance.n
   sickleHands = []
   for (const key of ['left', 'right'] as const) {
     const hand = handAnchors[key]
-    if (!(hand.present && hand.gesture === 'Thumb_Up')) {
+    if (!(hand.present && hand.gesture === 'Open_Palm')) {
       thumbSince[key] = null
       continue
     }

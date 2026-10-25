@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { getSickleHands } from './bird'
+import { isGameRunning } from './game'
 import { displayToScreen, handAnchors } from './handTracking'
 
 // Gloves are a Blender model (public/models/glove.glb): a tapered finger tube, a knuckle joint, a
@@ -92,15 +93,17 @@ function Gloves() {
 
   useFrame(() => {
     const { pts, a, b, mid, dir, up, right, back, pos, scale, q, m, basis } = scratch
-    const sickles = getSickleHands()
+    // The scythe rules only apply while a game is running; before that every hand keeps its glove.
+    const running = isGameRunning()
+    const sickles = running ? getSickleHands() : []
     let nTubes = 0
     let nJoints = 0
     let nHands = 0
 
     for (const key of ['left', 'right'] as const) {
       const hand = handAnchors[key]
-      // A thumbs-up hand is replaced by the scythe, so it gets no glove.
-      if (!hand.present || hand.landmarks.length < 21 || hand.gesture === 'Thumb_Up' || sickles.includes(key)) continue
+      // An open hand is replaced by the scythe, so it gets no glove.
+      if (!hand.present || hand.landmarks.length < 21 || (running && hand.gesture === 'Open_Palm') || sickles.includes(key)) continue
 
       for (let i = 0; i < 21; i++) {
         const p = displayToScreen(hand.landmarks[i], size.width, size.height)

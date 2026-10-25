@@ -130,6 +130,23 @@ export function isPinching(lm: Point[], held: boolean): boolean {
   return straight && apart < (held ? PINCH_OPEN : PINCH_CLOSE)
 }
 
+// Is the thumb stretched out away from the palm? Measured as the distance from the thumb tip to the
+// middle of the palm in hand sizes: a tucked thumb (fist, pinch) sits close to the palm, a stretched one
+// (hitchhiker, open hand) is about a hand-size away. Needs all 21 landmarks.
+const PALM_CENTER_POINTS = [0, 5, 9, 13, 17]
+const THUMB_OUT_RATIO = 0.75
+export function isThumbOut(lm: Point[]): boolean {
+  if (lm.length < 21) return false
+  const handSize = distTrue(lm[WRIST], lm[MIDDLE_MCP])
+  if (handSize === 0) return false
+  const center = {
+    x: PALM_CENTER_POINTS.reduce((sum, i) => sum + lm[i].x, 0) / PALM_CENTER_POINTS.length,
+    y: PALM_CENTER_POINTS.reduce((sum, i) => sum + lm[i].y, 0) / PALM_CENTER_POINTS.length,
+    z: 0,
+  }
+  return distTrue(lm[THUMB_TIP], center) / handSize > THUMB_OUT_RATIO
+}
+
 // Rule-based gesture classifier (HandLandmarker has no built-in gestures).
 // A finger is extended when its tip is farther from the wrist than its PIP joint.
 // The thumb is extended when its tip is farther from the pinky MCP than its IP joint.
