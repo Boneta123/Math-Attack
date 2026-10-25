@@ -1,11 +1,5 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect } from 'react'
 import { beginCalibration } from './game'
-import { getOperation, setOperation, subscribeOperation, type Operation } from './operations'
-
-const MODES: { op: Operation; label: string; symbol: string }[] = [
-  { op: '+', label: 'Addition', symbol: '+' },
-  { op: '*', label: 'Multiplication', symbol: '×' },
-]
 
 const buttonStyle: React.CSSProperties = {
   borderRadius: 10,
@@ -14,10 +8,8 @@ const buttonStyle: React.CSSProperties = {
   font: 'bold 18px system-ui, sans-serif',
 }
 
-// Start screen: pick a mode (the operation used to merge balls), then play.
+// Start screen. There is one way to play: addition and multiplication together, switched in game.
 export default function Home() {
-  const mode = useSyncExternalStore(subscribeOperation, getOperation)
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Enter') beginCalibration()
@@ -49,31 +41,8 @@ export default function Home() {
         Number Rush
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontSize: 14, letterSpacing: 2, opacity: 0.8 }}>MODE</div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {MODES.map(({ op, label, symbol }) => {
-            const active = op === mode
-            return (
-              <button
-                key={op}
-                onClick={() => setOperation(op)}
-                style={{
-                  ...buttonStyle,
-                  padding: '10px 20px',
-                  minWidth: 170,
-                  background: active ? 'rgba(60, 44, 20, 0.9)' : 'rgba(0, 0, 0, 0.55)',
-                  border: `2px solid ${active ? '#f2c14e' : 'rgba(255,255,255,0.2)'}`,
-                  boxShadow: active ? '0 0 12px rgba(242, 193, 78, 0.7)' : 'none',
-                  opacity: active ? 1 : 0.75,
-                }}
-              >
-                <span style={{ fontSize: 24, marginRight: 8 }}>{symbol}</span>
-                {label}
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ fontSize: 15, opacity: 0.85, textAlign: 'center', maxWidth: 420, lineHeight: 1.5 }}>
+        Merge balls with addition and multiplication. Close both fists to switch between them.
       </div>
 
       <button

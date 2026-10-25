@@ -11,6 +11,7 @@ import {
 } from './handTracking'
 import { getSickleHands } from './bird'
 import { getScreen, isGameRunning, subscribeScreen } from './game'
+import { updateOperation } from './operations'
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -105,8 +106,11 @@ export default function Camera() {
         pinch: hand.present && hand.pinch,
         point: hand.present ? toCanvas(hand.pinchPoint) : { x: 0, y: 0 },
       })
-      // Hands only grab balls during a game, not on the home, calibration or game over screens.
-      if (isGameRunning()) updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
+      // Hands only grab balls and switch the operation during a game, not on the home, calibration or game over screens.
+      if (isGameRunning()) {
+        updateOperation({ left: handAnchors.left, right: handAnchors.right })
+        updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
+      }
 
       // The gloves themselves are 3D (GloveScene.tsx, drawn with the balls). A hand showing a scythe
       // (thumbs up) gets no glove at all: the scythe replaces it. A hand reading Thumb_Up is skipped
