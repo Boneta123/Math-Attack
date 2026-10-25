@@ -1,5 +1,6 @@
-import { useMemo, useRef, useSyncExternalStore } from 'react'
+import { Suspense, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { ballRadiusPx, balls } from './balls'
 import {
@@ -23,10 +24,13 @@ import { SHOT_SIZE, depthScale, stepShips } from './ships'
 // the group is rotated half a turn, so on screen it points up the lane; its opening is about 0.45
 // from the tile center, which is where cannonLayout.muzzleY puts the explosion and shots.
 
-const IRON = { color: '#3b3f44', metalness: 0.8, roughness: 0.42 } as const
-const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
+// The stilts, barrel and charge lamp come from a Blender model (public/models/cannon.glb): nodes
+// `cannon_frame`, `cannon_barrel` (built in the barrel's own coordinates, pivot at the breech) and
+// `cannon_lamp`. The tile highlight, shadow and glow below are still drawn in code.
+const CANNON_MODEL = '/models/cannon.glb'
+useGLTF.preload(CANNON_MODEL)
 
-const WOOD = { color: '#5a4028', metalness: 0.05, roughness: 0.85 } as const
+const DARK_IRON = { color: '#26292d', metalness: 0.7, roughness: 0.55 } as const
 
 // How far the barrel is raised out of the tile plane (0 = lying flat, PI / 2 = pointing straight into the screen).
 const STAND_TILT = (60 * Math.PI) / 180
@@ -44,7 +48,24 @@ function CannonUnit({ lane }: { lane: number }) {
   const plateMesh = useRef<THREE.Mesh>(null)
   // 0..1 fade of the tile grid: only visible while a held ball hovers over it.
   const tileShow = useRef(0)
-  const lamp = useRef<THREE.MeshStandardMaterial>(null)
+  const { scene } = useGLTF(CANNON_MODEL)
+  // Own copy of the model per cannon, with its own lamp material so lamps blink independently.
+  const { frameModel, barrelModel, lampModel, lamp } = useMemo(() => {
+    const clone = scene.clone(true)
+    let lampMaterial: THREE.MeshStandardMaterial | null = null
+    clone.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.material instanceof THREE.MeshStandardMaterial) {
+        node.material = node.material.clone()
+        if (node.name === 'cannon_lamp' || node.parent?.name === 'cannon_lamp') lampMaterial = node.material
+      }
+    })
+    return {
+      frameModel: clone.getObjectByName('cannon_frame')!,
+      barrelModel: clone.getObjectByName('cannon_barrel')!,
+      lampModel: clone.getObjectByName('cannon_lamp')!,
+      lamp: lampMaterial as THREE.MeshStandardMaterial | null,
+    }
+  }, [scene])
   const glow = useRef<THREE.Mesh>(null)
   const { bump } = getIronBase()
 
@@ -72,9 +93,9 @@ function CannonUnit({ lane }: { lane: number }) {
 
     // The lamp blinks faster as the shot gets close.
     const blink = loaded ? 0.55 + 0.45 * Math.sin(cannon.charge * (8 + 22 * p)) : 0
-    if (lamp.current) {
-      lamp.current.emissiveIntensity = loaded ? 0.6 + 2.6 * blink * (0.4 + 0.6 * p) : 0
-      lamp.current.emissive.set(p > 0.7 ? '#ff4a1c' : '#ffb02e')
+    if (lamp) {
+      lamp.emissiveIntensity = loaded ? 0.6 + 2.6 * blink * (0.4 + 0.6 * p) : 0
+      lamp.emissive.set(p > 0.7 ? '#ff4a1c' : '#ffb02e')
     }
     if (glow.current) {
       const material = glow.current.material as THREE.MeshBasicMaterial
@@ -111,57 +132,19 @@ function CannonUnit({ lane }: { lane: number }) {
         <circleGeometry args={[0.36, 24]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
       </mesh>
-      {[-0.17, 0.17].map((x) => (
-        <group key={x}>
-          <mesh position={[x, 0.42, 0]}>
-            <cylinderGeometry args={[0.04, 0.05, 0.44, 12]} />
-            <meshStandardMaterial {...WOOD} />
-          </mesh>
-          <mesh position={[x, 0.63, 0]}>
-            <boxGeometry args={[0.16, 0.05, 0.14]} />
-            <meshStandardMaterial {...DARK_IRON} />
-          </mesh>
-        </group>
-      ))}
-      <mesh position={[0, 0.46, 0.02]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.38, 10]} />
-        <meshStandardMaterial {...WOOD} />
-      </mesh>
+      <primitive object={frameModel} />
 
       <group ref={barrel}>
         {/* Stand the barrel up: tilt it about the breech so the muzzle points into the screen, toward the water. */}
         <group position={[0, 0.2, 0.1]} rotation={[STAND_TILT, 0, 0]}>
           <group position={[0, -0.2, 0]}>
-            <mesh position={[0, 0.2, 0]}>
-              <sphereGeometry args={[0.24, 32, 32]} />
-              <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
-            </mesh>
-            <mesh position={[0, -0.11, 0]}>
-              <cylinderGeometry args={[0.2, 0.15, 0.62, 32]} />
-              <meshStandardMaterial {...IRON} bumpMap={bump} bumpScale={2} />
-            </mesh>
-            <mesh position={[0, 0.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.185, 0.03, 12, 32]} />
-              <meshStandardMaterial {...DARK_IRON} />
-            </mesh>
-            <mesh position={[0, -0.43, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.16, 0.045, 12, 32]} />
-              <meshStandardMaterial {...DARK_IRON} />
-            </mesh>
-            {/* Dark bore inside the muzzle */}
-            <mesh position={[0, -0.425, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[0.12, 24]} />
-              <meshBasicMaterial color="#050505" />
-            </mesh>
+            <primitive object={barrelModel} />
           </group>
         </group>
       </group>
 
       {/* Charge lamp on the shoulder of the tile */}
-      <mesh position={[0.33, 0.33, 0.1]}>
-        <sphereGeometry args={[0.075, 16, 16]} />
-        <meshStandardMaterial ref={lamp} color="#3a2a14" emissive="#ffb02e" emissiveIntensity={0} />
-      </mesh>
+      <primitive object={lampModel} />
       <mesh ref={glow} position={[0.33, 0.33, 0.12]}>
         <sphereGeometry args={[0.17, 16, 16]} />
         <meshBasicMaterial color="#ffb02e" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
@@ -325,9 +308,11 @@ export default function Cannons() {
 
   return (
     <>
-      {Array.from({ length: LANES }, (_, lane) => (
-        <CannonUnit key={`cannon-${lane}`} lane={lane} />
-      ))}
+      <Suspense fallback={null}>
+        {Array.from({ length: LANES }, (_, lane) => (
+          <CannonUnit key={`cannon-${lane}`} lane={lane} />
+        ))}
+      </Suspense>
       {Array.from({ length: LANES }, (_, lane) => (
         <Explosion key={`boom-${lane}`} lane={lane} />
       ))}

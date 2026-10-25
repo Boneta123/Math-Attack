@@ -66,6 +66,10 @@ export default function HandZoneBalls() {
       // are not stretched into ovals.
       camera={{ position: [0, 0, 35.5], fov: 15 }}
       gl={{ alpha: true }}
+      // Ships are clipped at the waterline (ShipScene), which needs local clipping planes.
+      onCreated={({ gl }) => {
+        gl.localClippingEnabled = true
+      }}
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 }}
     >
       {/* Moody, dim lighting; the Lightformer environment is generated locally (no downloads). */}

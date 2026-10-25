@@ -1,8 +1,14 @@
-import { useMemo, useRef, useSyncExternalStore } from 'react'
+import { Suspense, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { cannonLayout } from './cannons'
 import { FLASH_TIME, SINK_TIME, getShipsVersion, shipScale, ships, subscribeShips, type Ship } from './ships'
+
+// The ship model is built in Blender (public/models/ship.glb). Its `sail` and `number_plate` meshes
+// get the number textures; every material is faded and flashed red like before.
+const SHIP_MODEL = '/models/ship.glb'
+useGLTF.preload(SHIP_MODEL)
 
 // Local ship units: 1 = one grid column. The group is scaled every frame by the lane width and the
 // ship's apparent size, so even the biggest ship fits inside its lane. The model faces the camera
@@ -17,6 +23,67 @@ const TILT = 0.3
 const SHIP_Z = -3
 const CAMERA_Z = 35.5
 const DEPTH_COMPENSATION = (CAMERA_Z - SHIP_Z) / CAMERA_Z
+
+// Ships float IN the water: each hull is clipped at a waterline that sits WATERLINE up the hull
+// (local units, hull spans -0.13..0.13) and a foamy band is drawn over the cut, so the lower hull
+// reads as submerged. The surface ripples a little while the ship bobs through it, and a sinking
+// ship slides under it.
+const WATERLINE = -0.075
+const BAND_Z = SHIP_Z + 0.6
+// Band width in ship widths-ish (local units) and its height as a share of the width.
+const BAND_WIDTH = 1.7
+const BAND_HEIGHT = 0.32
+const BAND_CREST = 14 / 96 // how far down the band (0 = top) its foam crest sits
+
+let bandTexture: THREE.CanvasTexture | null = null
+function waterlineTexture() {
+  if (bandTexture) return bandTexture
+  const w = 512
+  const h = 96
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const g = canvas.getContext('2d')!
+  const crest = (x: number) => 14 + 4 * Math.sin(x * 0.075) + 3 * Math.sin(x * 0.19 + 1.3) + 1.5 * Math.sin(x * 0.41)
+  // Translucent sea-coloured body below the crest, fading out toward the bottom.
+  const body = g.createLinearGradient(0, 10, 0, h)
+  body.addColorStop(0, 'rgba(70, 120, 122, 0.78)')
+  body.addColorStop(0.5, 'rgba(36, 82, 90, 0.5)')
+  body.addColorStop(1, 'rgba(20, 52, 62, 0)')
+  g.fillStyle = body
+  g.beginPath()
+  g.moveTo(0, h)
+  for (let x = 0; x <= w; x += 4) g.lineTo(x, crest(x))
+  g.lineTo(w, h)
+  g.closePath()
+  g.fill()
+  // Foam crest and a few specks and streaks trailing behind it.
+  g.strokeStyle = 'rgba(236, 246, 243, 0.95)'
+  g.lineWidth = 6
+  g.lineJoin = 'round'
+  g.beginPath()
+  for (let x = 0; x <= w; x += 4) (x === 0 ? g.moveTo(x, crest(x) + 2) : g.lineTo(x, crest(x) + 2))
+  g.stroke()
+  g.strokeStyle = 'rgba(226, 240, 238, 0.45)'
+  g.lineWidth = 2
+  for (let k = 0; k < 4; k++) {
+    g.beginPath()
+    for (let x = 0; x <= w; x += 6) (x === 0 ? g.moveTo(x, crest(x + k * 40) + 14 + k * 9) : g.lineTo(x, crest(x + k * 40) + 14 + k * 9))
+    g.stroke()
+  }
+  // Fade the ends so the band melts into the sea instead of ending in a hard edge.
+  g.globalCompositeOperation = 'destination-in'
+  const ends = g.createLinearGradient(0, 0, w, 0)
+  ends.addColorStop(0, 'rgba(0,0,0,0)')
+  ends.addColorStop(0.16, 'rgba(0,0,0,1)')
+  ends.addColorStop(0.84, 'rgba(0,0,0,1)')
+  ends.addColorStop(1, 'rgba(0,0,0,0)')
+  g.fillStyle = ends
+  g.fillRect(0, 0, w, h)
+  bandTexture = new THREE.CanvasTexture(canvas)
+  bandTexture.colorSpace = THREE.SRGBColorSpace
+  return bandTexture
+}
 
 // A bullseye with the ship's number in the middle floats above each ship so the number can be read
 // from far away. It is drawn in front of the cannons at a size that does not shrink with the ship,
@@ -84,6 +151,7 @@ function signTexture(value: number, kind: 'plate' | 'sail') {
     g.fillText(String(value), size / 2, size / 2 + 4)
     texture = new THREE.CanvasTexture(canvas)
     texture.colorSpace = THREE.SRGBColorSpace
+    texture.flipY = false // the model's UVs use the glTF convention
     signCache.set(key, texture)
   }
   return texture
@@ -96,12 +164,31 @@ function ShipUnit({ ship }: { ship: Ship }) {
   const burst = useRef<THREE.Group>(null)
   const flash = useRef<THREE.Mesh>(null)
   const marker = useRef<THREE.Mesh>(null)
+  const band = useRef<THREE.Mesh>(null)
   const sparks = useRef<THREE.Points>(null)
   const smoke = useRef<THREE.Points>(null)
+  const { scene } = useGLTF(SHIP_MODEL)
 
-  const { hull, wood, plate, sail, markerMaterial, sparkGeometry, smokeGeometry, sparkVel, smokeVel } = useMemo(() => {
-    const standard = (color: string, map?: THREE.Texture) =>
-      new THREE.MeshStandardMaterial({ color, map, roughness: 0.8, metalness: 0.1, transparent: true, side: THREE.DoubleSide })
+  const { shipModel, shipMaterials, clipPlane, bandMaterial, markerMaterial, sparkGeometry, smokeGeometry, sparkVel, smokeVel } = useMemo(() => {
+    // Own copy of the model per ship, with own materials so fades and flashes stay per ship.
+    const shipModel = scene.clone(true)
+    const shipMaterials: THREE.MeshStandardMaterial[] = []
+    // Keeps y >= the water surface; its constant is moved every frame.
+    const clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+    shipModel.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return
+      const material = (node.material as THREE.MeshStandardMaterial).clone()
+      material.transparent = true
+      material.side = THREE.DoubleSide
+      material.clippingPlanes = [clipPlane]
+      const kind = node.name === 'sail' || node.parent?.name === 'sail' ? 'sail' : node.name === 'number_plate' || node.parent?.name === 'number_plate' ? 'plate' : null
+      if (kind) {
+        material.color.set('#ffffff')
+        material.map = signTexture(ship.value, kind)
+      }
+      node.material = material
+      shipMaterials.push(material)
+    })
     const velocities = (n: number, minSpeed: number, maxSpeed: number) =>
       Array.from({ length: n }, () => {
         const angle = Math.random() * Math.PI * 2
@@ -114,17 +201,17 @@ function ShipUnit({ ship }: { ship: Ship }) {
       return geometry
     }
     return {
-      hull: standard('#4a3322'),
-      wood: standard('#6b4a2e'),
-      plate: standard('#ffffff', signTexture(ship.value, 'plate')),
-      sail: standard('#ffffff', signTexture(ship.value, 'sail')),
+      shipModel,
+      shipMaterials,
+      clipPlane,
+      bandMaterial: new THREE.MeshBasicMaterial({ map: waterlineTexture(), transparent: true, depthWrite: false }),
       markerMaterial: new THREE.MeshBasicMaterial({ map: markerTexture(ship.value), transparent: true, depthWrite: false }),
       sparkGeometry: make(SPARKS),
       smokeGeometry: make(SMOKE),
       sparkVel: velocities(SPARKS, 0.8, 2.4),
       smokeVel: velocities(SMOKE, 0.2, 0.8),
     }
-  }, [ship.value])
+  }, [ship.value, scene])
 
   useFrame(({ clock }) => {
     const g = group.current
@@ -140,7 +227,21 @@ function ShipUnit({ ship }: { ship: Ship }) {
       ((0.5 - ship.y) * viewport.height + Math.sin(t * 1.6) * 0.03 * unit * shipScale(ship)) * DEPTH_COMPENSATION,
       SHIP_Z,
     )
-    g.scale.setScalar(unit * shipScale(ship) * DEPTH_COMPENSATION)
+    const shipSize = unit * shipScale(ship) * DEPTH_COMPENSATION
+    g.scale.setScalar(shipSize)
+
+    // The water surface: fixed relative to the ship's resting height, with a small ripple, so the
+    // hull rises and falls through it as the ship bobs. Everything below it is clipped away.
+    const restY = (0.5 - ship.y) * viewport.height * DEPTH_COMPENSATION
+    const waterY = restY + (WATERLINE + 0.012 * Math.sin(t * 0.9 + 1.3)) * shipSize
+    clipPlane.constant = -waterY
+    const strip = band.current
+    if (strip) {
+      const bandW = BAND_WIDTH * shipSize
+      const bandH = BAND_HEIGHT * shipSize
+      strip.scale.set(bandW * (1 + 0.03 * Math.sin(t * 1.7)), bandH, 1)
+      strip.position.set(g.position.x, waterY + 0.02 * shipSize + BAND_CREST * bandH - bandH / 2, BAND_Z)
+    }
 
     // Bullseye above the ship for its first MARKER_SECONDS, fading out over the last second.
     const badge = marker.current
@@ -164,7 +265,9 @@ function ShipUnit({ ship }: { ship: Ship }) {
     m.position.y = -tip * 0.6
     const opacity = ship.blast ? Math.max(0, 1 - sunk * 4) : 1 - sunk * sunk
     const red = ship.flash > 0 ? ship.flash / FLASH_TIME : 0
-    for (const material of [hull, wood, plate, sail]) {
+    bandMaterial.opacity = opacity
+    if (band.current) band.current.visible = opacity > 0
+    for (const material of shipMaterials) {
       material.opacity = opacity
       material.emissive.setRGB(red, 0, 0)
     }
@@ -204,28 +307,15 @@ function ShipUnit({ ship }: { ship: Ship }) {
 
   return (
     <>
+      <mesh ref={band} material={bandMaterial}>
+        <planeGeometry args={[1, 1]} />
+      </mesh>
       <mesh ref={marker} material={markerMaterial} visible={false}>
         <planeGeometry args={[1, 1]} />
       </mesh>
       <group ref={group}>
         <group ref={model}>
-          {/* Tapered hull: a four-sided frustum, wider on top, stretched into a ship's length */}
-          <mesh material={hull} scale={[1, 1, 1.6]} rotation={[0, Math.PI / 4, 0]}>
-            <cylinderGeometry args={[0.34, 0.26, 0.26, 4]} />
-          </mesh>
-          {/* Number plate on the bow-facing side of the hull (angled to follow its slope) */}
-          <mesh material={plate} position={[0, 0, 0.35]} rotation={[0.337, 0, 0]}>
-            <planeGeometry args={[0.3, 0.22]} />
-          </mesh>
-          <mesh material={wood} position={[0, 0.15, 0]}>
-            <boxGeometry args={[0.46, 0.04, 0.72]} />
-          </mesh>
-          <mesh material={wood} position={[0, 0.55, 0]}>
-            <cylinderGeometry args={[0.02, 0.025, 0.8, 8]} />
-          </mesh>
-          <mesh material={sail} position={[0, 0.58, 0.05]}>
-            <planeGeometry args={[0.4, 0.5]} />
-          </mesh>
+          <primitive object={shipModel} />
         </group>
         <group ref={burst} visible={false} position={[0, 0, 0.3]}>
           <mesh ref={flash}>
@@ -248,9 +338,11 @@ export default function Ships() {
   useSyncExternalStore(subscribeShips, getShipsVersion)
   return (
     <>
-      {ships.map((ship) => (
-        <ShipUnit key={ship.id} ship={ship} />
-      ))}
+      <Suspense fallback={null}>
+        {ships.map((ship) => (
+          <ShipUnit key={ship.id} ship={ship} />
+        ))}
+      </Suspense>
     </>
   )
 }
