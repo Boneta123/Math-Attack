@@ -1,7 +1,7 @@
 // Enemy ships sail down the lanes from the horizon to the shore. A cannon shot with the same
 // number sinks the ship; any other number is consumed and the ship sails on.
 import { LANES, LANE_END_Y, notifyShots, shots } from './cannons'
-import { shipRange } from './difficulty'
+import { shipRange, shipSpawnInterval } from './difficulty'
 
 // Normalized screen y of the waterline (two thirds of the way down, matching the beach shader).
 export const SHORE_Y = 2 / 3
@@ -11,8 +11,6 @@ export const SHIP_TRAVEL_TIME = 42
 // destroyed a little short of the shore (the path and speed are still those of a 42 second trip).
 const EARLY_EXPLOSION = 10
 export const EXPLODE_AGE = SHIP_TRAVEL_TIME - EARLY_EXPLOSION
-// Seconds between spawns: one ship at a time keeps the water readable for now.
-const SPAWN_INTERVAL = 20
 // Seconds a sunk ship takes to go under, and a wrong-number hit flashes red.
 export const SINK_TIME = 0.6
 export const FLASH_TIME = 0.25
@@ -94,7 +92,7 @@ export function stepShips(dt: number) {
   const free = Array.from({ length: LANES }, (_, lane) => lane).filter((lane) => !ships.some((s) => s.lane === lane))
   if (free.length > 0) spawnTimer -= dt
   if (free.length > 0 && spawnTimer <= 0) {
-    spawnTimer = SPAWN_INTERVAL
+    spawnTimer = shipSpawnInterval()
     const lane = free[Math.floor(Math.random() * free.length)]
     const { min, max } = shipRange()
     const value = min + Math.floor(Math.random() * (max - min + 1))

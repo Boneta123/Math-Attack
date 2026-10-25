@@ -11,7 +11,7 @@ import {
 } from './handTracking'
 import { getSickleHands } from './bird'
 import { getScreen, isGameRunning, subscribeScreen } from './game'
-import { updateOperation } from './operations'
+import { updateThumbSwitch } from './operations'
 
 const overlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -108,16 +108,19 @@ export default function Camera() {
       })
       // Hands only grab balls and switch the operation during a game, not on the home, calibration or game over screens.
       if (isGameRunning()) {
-        updateOperation({ left: handAnchors.left, right: handAnchors.right })
+        updateThumbSwitch([handAnchors.left, handAnchors.right])
         updateBalls({ left: handInput(handAnchors.left), right: handInput(handAnchors.right) }, cw, ch)
       }
 
       // The gloves themselves are 3D (GloveScene.tsx, drawn with the balls). A hand showing a scythe
-      // (thumbs up) gets no glove at all: the scythe replaces it. A hand reading Thumb_Up is skipped
+      // (open hand) gets no glove at all: the scythe replaces it. A hand reading Open_Palm is skipped
       // right away too, so nothing waits on the bird step to catch up.
-      const sickleHands = getSickleHands().map((key) => handAnchors[key])
+      // These rules only apply once the game has started: on the home and calibration screens every hand
+      // keeps its glove, even when it is held open to line it up with the outlines.
+      const running = isGameRunning()
+      const sickleHands = running ? getSickleHands().map((key) => handAnchors[key]) : []
       const presentHands = [handAnchors.left, handAnchors.right].filter(
-        (h) => h.present && h.gesture !== 'Thumb_Up' && !sickleHands.includes(h),
+        (h) => h.present && !(running && h.gesture === 'Open_Palm') && !sickleHands.includes(h),
       )
 
       // Ball numbers on top of the gloves, so values stay readable while a hand covers a ball.

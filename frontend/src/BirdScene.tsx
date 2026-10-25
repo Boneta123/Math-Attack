@@ -22,7 +22,7 @@ import {
 const BIRD_MODEL = '/models/bird.glb'
 useGLTF.preload(BIRD_MODEL)
 
-// The scythe that replaces the glove on a thumbs up is also a Blender model (public/models/scythe.glb),
+// The scythe that replaces the glove on an open hand is also a Blender model (public/models/scythe.glb),
 // built to the footprint of the old sickle so the blade hit point in bird.ts is unchanged.
 const SCYTHE_MODEL = '/models/scythe.glb'
 useGLTF.preload(SCYTHE_MODEL)
@@ -136,7 +136,7 @@ function Bird() {
   )
 }
 
-// A large scythe (snath plus curved blade) that replaces the glove on the thumbs-up hand.
+// A large scythe (snath plus curved blade) that replaces the glove on the open hand.
 function Sickle({ handKey }: { handKey: 'left' | 'right' }) {
   const { viewport, size } = useThree()
   const group = useRef<THREE.Group>(null)
@@ -160,7 +160,7 @@ function Sickle({ handKey }: { handKey: 'left' | 'right' }) {
   useFrame(() => {
     const g = group.current
     if (!g) return
-    g.visible = getSickleHands().includes(handKey)
+    g.visible = isGameRunning() && getSickleHands().includes(handKey)
     if (!g.visible) return
     const hand = handAnchors[handKey]
     const layout = cannonLayout(size.width, size.height)
