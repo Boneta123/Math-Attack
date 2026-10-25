@@ -15,8 +15,16 @@ export const MAX_BALLS = COLS * ROWS
 const BALL_FILL = 0.33
 // Seconds between new balls entering from the left edge of the row (while there is room).
 const SPAWN_INTERVAL = 3
-// How quickly balls glide to their slot (higher = snappier). Slow enough to follow by eye.
-const SETTLE_RATE = 5
+// The cannonball rack slopes down to the right: its height drops by RACK_DROP of the screen height
+// across the full screen width. Balls rest on it and roll down it, speeding up under ROLL_ACCEL
+// (screen widths per second squared) until the end stop or the ball ahead stops them; a ball that
+// arrives fast enough bounces back a little (BOUNCE of its speed).
+export const RACK_DROP = 0.07
+const ROLL_ACCEL = 1.5
+const BOUNCE = 0.18
+const BOUNCE_MIN_SPEED = 0.25
+// Height of the rack's ball line at normalized x (the balls' centres follow it).
+export const rackY = (x: number) => BALL_ROW_Y + RACK_DROP * (x - 0.5)
 // Where a ball starts when it enters the row from the left (just off the screen edge).
 const ENTRY_X = -0.08
 // Slot value of a ball that has just entered: left of every other ball until packRight reassigns it.
@@ -38,22 +46,24 @@ export type Ball = {
   x: number
   y: number
   heldBy: HandKey | null
+  // Rolling speed along the rack in screen widths per second (resting balls only).
+  vx: number
   // Grid slot (row * COLS + col) while resting; null while held. Resting balls glide to their slot.
   slot: number | null
 }
 
-// Center of a grid slot in normalized screen space. The single row sits in the hand zone, just below the shoreline,
-// with the cannons directly above it.
-const slotCenter = (slot: number) => ({
-  x: ((slot % COLS) + 0.5) / COLS,
-  y: BALL_ROW_Y,
-})
+// Center of a slot in normalized screen space. The single row sits on the rack in the hand zone, just
+// below the shoreline, with the cannons directly above it.
+const slotCenter = (slot: number) => {
+  const x = ((slot % COLS) + 0.5) / COLS
+  return { x, y: rackY(x) }
+}
 
 // Mutated in place (merging and spawning add and remove balls), never reassigned.
 // The first rack sits at the right end of the row; resting balls always pack against the right.
 export const balls: Ball[] = BALL_VALUES.map((value, i) => {
   const slot = COLS - BALL_VALUES.length + i
-  return { id: i + 1, value, ...slotCenter(slot), heldBy: null, slot }
+  return { id: i + 1, value, ...slotCenter(slot), vx: 0, heldBy: null, slot }
 })
 
 let nextBallId = BALL_VALUES.length + 1
@@ -104,7 +114,8 @@ function sendToEntry(ball: Ball) {
   ball.heldBy = null
   ball.slot = ENTRY_SLOT
   ball.x = ENTRY_X
-  ball.y = slotCenter(0).y
+  ball.y = rackY(ENTRY_X)
+  ball.vx = 0
   packRight()
 }
 
@@ -189,7 +200,7 @@ function mergeHeldBalls(cw: number, ch: number, radius: number) {
   // The new ball takes the right ball's spot, which is already at the right pinch point.
   balls.splice(balls.indexOf(a), 1)
   balls.splice(balls.indexOf(b), 1)
-  balls.push({ id: nextBallId++, value, x: b.x, y: b.y, heldBy: 'right', slot: null })
+  balls.push({ id: nextBallId++, value, x: b.x, y: b.y, vx: 0, heldBy: 'right', slot: null })
 
   // The left fingers are still pinched, so the left hand must open before it may grab again.
   mustReopen.left = true
@@ -204,7 +215,7 @@ function spawnBall(): boolean {
   // Cycle through the three numbers of the current range (1, 2, 3 -> 2, 3, 4 -> ... as the game levels up).
   const value = ballMin() + nextValueIndex
   nextValueIndex = (nextValueIndex + 1) % BALL_RANGE_SIZE
-  balls.push({ id: nextBallId++, value, x: ENTRY_X, y: slotCenter(0).y, heldBy: null, slot: ENTRY_SLOT })
+  balls.push({ id: nextBallId++, value, x: ENTRY_X, y: rackY(ENTRY_X), vx: 0, heldBy: null, slot: ENTRY_SLOT })
   packRight()
   return true
 }
@@ -217,7 +228,7 @@ export function resetBalls() {
   balls.length = 0
   BALL_VALUES.forEach((value, i) => {
     const slot = COLS - BALL_VALUES.length + i
-    balls.push({ id: nextBallId++, value, ...slotCenter(slot), heldBy: null, slot })
+    balls.push({ id: nextBallId++, value, ...slotCenter(slot), vx: 0, heldBy: null, slot })
   })
   nextValueIndex = 0
   spawnTimer = 0
@@ -243,11 +254,26 @@ export function stepBalls(dt: number) {
     }
   }
 
-  const k = 1 - Math.exp(-SETTLE_RATE * Math.min(dt, 0.1))
+  // Resting balls roll down the rack toward their slot instead of sliding.
+  const step = Math.min(dt, 0.1)
   for (const ball of balls) {
-    if (ball.slot === null) continue
+    if (ball.slot === null) {
+      ball.vx = 0
+      continue
+    }
     const target = slotCenter(ball.slot)
-    ball.x += (target.x - ball.x) * k
-    ball.y += (target.y - ball.y) * k
+    if (ball.vx < 0) {
+      // Rebounding off the stop: the slope slows the backward roll, then it rolls forward again.
+      ball.vx = Math.min(ball.vx + ROLL_ACCEL * step, 0)
+      ball.x += ball.vx * step
+    } else if (ball.x < target.x - 1e-4) {
+      ball.vx += ROLL_ACCEL * step
+      ball.x = Math.min(ball.x + ball.vx * step, target.x)
+      if (ball.x >= target.x) ball.vx = ball.vx > BOUNCE_MIN_SPEED ? -ball.vx * BOUNCE : 0
+    } else {
+      ball.x = target.x
+      ball.vx = 0
+    }
+    ball.y = rackY(ball.x)
   }
 }
