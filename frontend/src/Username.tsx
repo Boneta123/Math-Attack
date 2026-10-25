@@ -18,12 +18,49 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 }
 
+// Eye button inside the password box: touch it to show the password, again to hide it. Pressing it
+// does not take focus from the input, so the keyboard stays up on phones.
+function EyeButton({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      onMouseDown={(event) => event.preventDefault()}
+      aria-label={shown ? 'Hide password' : 'Show password'}
+      aria-pressed={shown}
+      style={{
+        position: 'absolute',
+        top: '50%',
+        right: 8,
+        transform: 'translateY(-50%)',
+        width: 40,
+        height: 40,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 'none',
+        borderRadius: 8,
+        background: 'none',
+        color: shown ? '#f2c14e' : '#f1e6c8',
+        cursor: 'pointer',
+      }}
+    >
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+        <circle cx="12" cy="12" r="3" />
+        {shown && <path d="M3 3l18 18" />}
+      </svg>
+    </button>
+  )
+}
+
 // First screen for a new player: sign up with a unique username and a password, or log in to an
 // existing account, so scores can be tracked.
 export default function Username() {
   const [mode, setMode] = useState<'signup' | 'login'>('signup')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const online = useSyncExternalStore(subscribeOnline, getOnline)
@@ -129,19 +166,22 @@ export default function Username() {
         onKeyDown={onKeyDown}
         style={{ ...inputStyle, border }}
       />
-      <input
-        type="password"
-        value={password}
-        maxLength={72}
-        placeholder="Password"
-        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-        onChange={(event) => {
-          setPassword(event.target.value)
-          setError('')
-        }}
-        onKeyDown={onKeyDown}
-        style={{ ...inputStyle, border }}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          maxLength={72}
+          placeholder="Password"
+          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          onChange={(event) => {
+            setPassword(event.target.value)
+            setError('')
+          }}
+          onKeyDown={onKeyDown}
+          style={{ ...inputStyle, border, paddingRight: 52 }}
+        />
+        <EyeButton shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
+      </div>
       <div style={{ minHeight: 20, fontSize: 14, color: '#ff8a8a', textAlign: 'center' }}>{error}</div>
       <button
         onClick={submit}
