@@ -3,7 +3,11 @@ import { goHome } from './game'
 import { MAX_LIVES, getLives, subscribeLives } from './lives'
 import { OPERATIONS, getOperation, subscribeOperation, type Operation } from './operations'
 
-const LABELS: Record<Operation, string> = { '+': 'RH + LH', '*': 'RH × LH' }
+const SYMBOLS: Record<Operation, { symbol: string; label: string }> = {
+  '+': { symbol: '+', label: 'Add' },
+  '-': { symbol: '−', label: 'Subtract' },
+  '*': { symbol: '×', label: 'Multiply' },
+}
 
 function Heart({ lost }: { lost: boolean }) {
   return (
@@ -55,10 +59,59 @@ function ExitButton() {
   )
 }
 
-// Top-left HUD: remaining lives above the two operations. The highlighted one is used when balls merge.
+// Three large boxes under the Exit button showing the current mode. They are not selectable: stretch
+// out either thumb to move to the next one.
+function ModeDisplay() {
+  const selected = useSyncExternalStore(subscribeOperation, getOperation)
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 66,
+        right: 14,
+        zIndex: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        width: 164,
+        pointerEvents: 'none',
+      }}
+    >
+      {OPERATIONS.map((op) => {
+        const active = op === selected
+        return (
+          <div
+            key={op}
+            style={{
+              height: 80,
+              border: `3px solid ${active ? '#f2c14e' : 'rgba(255,255,255,0.3)'}`,
+              borderRadius: 12,
+              background: active ? 'rgba(88, 62, 22, 0.92)' : 'rgba(0, 0, 0, 0.6)',
+              boxShadow: active ? '0 0 16px rgba(242, 193, 78, 0.8)' : 'none',
+              opacity: active ? 1 : 0.7,
+              color: '#f1e6c8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 14,
+              font: 'bold 18px system-ui, sans-serif',
+            }}
+          >
+            <span style={{ fontSize: 44, lineHeight: 1 }}>{SYMBOLS[op].symbol}</span>
+            <span style={{ fontSize: 16, opacity: 0.9 }}>{SYMBOLS[op].label}</span>
+          </div>
+        )
+      })}
+      <div style={{ font: '13px system-ui, sans-serif', textAlign: 'center', opacity: 0.85, color: '#f1e6c8', textShadow: '0 1px 3px #000' }}>
+        Stretch out a thumb to switch
+      </div>
+    </div>
+  )
+}
+
+// Top-left HUD: remaining lives. The mode display and Exit are on the right.
 export default function Hud() {
   const lives = useSyncExternalStore(subscribeLives, getLives)
-  const selected = useSyncExternalStore(subscribeOperation, getOperation)
   return (
     <>
       <div
@@ -72,34 +125,13 @@ export default function Hud() {
           color: '#f1e6c8',
         }}
       >
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
           {Array.from({ length: MAX_LIVES }, (_, i) => (
             <Heart key={i} lost={i >= lives} />
           ))}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 124 }}>
-          {OPERATIONS.map((op) => {
-            const active = op === selected
-            return (
-              <div
-                key={op}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  background: active ? 'rgba(60, 44, 20, 0.85)' : 'rgba(0, 0, 0, 0.55)',
-                  border: `2px solid ${active ? '#f2c14e' : 'rgba(255,255,255,0.18)'}`,
-                  boxShadow: active ? '0 0 10px rgba(242, 193, 78, 0.7)' : 'none',
-                  opacity: active ? 1 : 0.7,
-                  fontWeight: active ? 700 : 500,
-                }}
-              >
-                {LABELS[op]}
-              </div>
-            )
-          })}
-        </div>
-        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, textShadow: '0 1px 3px #000' }}>Close both fists to switch</div>
       </div>
+      <ModeDisplay />
       <ExitButton />
     </>
   )

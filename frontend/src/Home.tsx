@@ -8,7 +8,7 @@ const buttonStyle: React.CSSProperties = {
   font: 'bold 18px system-ui, sans-serif',
 }
 
-// Start screen. There is one way to play: addition and multiplication together, switched in game.
+// Start screen. There is one way to play: addition, subtraction and multiplication together, switched in game.
 export default function Home() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -42,7 +42,7 @@ export default function Home() {
       </div>
 
       <div style={{ fontSize: 15, opacity: 0.85, textAlign: 'center', maxWidth: 420, lineHeight: 1.5 }}>
-        Merge balls with addition and multiplication. Close both fists to switch between them.
+        Merge balls with addition, subtraction and multiplication. Stretch out either thumb to switch between them. Open a hand fully to swing the scythe.
       </div>
 
       <button
