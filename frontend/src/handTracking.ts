@@ -130,21 +130,26 @@ export function isPinching(lm: Point[], held: boolean): boolean {
   return straight && apart < (held ? PINCH_OPEN : PINCH_CLOSE)
 }
 
-// Is the thumb stretched out away from the palm? Measured as the distance from the thumb tip to the
-// middle of the palm in hand sizes: a tucked thumb (fist, pinch) sits close to the palm, a stretched one
-// (hitchhiker, open hand) is about a hand-size away. Needs all 21 landmarks.
-const PALM_CENTER_POINTS = [0, 5, 9, 13, 17]
-const THUMB_OUT_RATIO = 0.75
-export function isThumbOut(lm: Point[]): boolean {
+// Has the thumb let go of the curled ring and little fingers? In the resting pose the thumb tip touches
+// them, so the gap from the thumb tip to the nearer of the two fingertips stays small however the hand is
+// turned; it only grows when the thumb is pulled away. Measured in hand sizes. It counts as away above
+// THUMB_AWAY and only as back again below THUMB_BACK (`away` = it was away last frame), so jitter at the
+// edge cannot fire twice. The ring and little fingers must still be curled (tip nearer the wrist than its
+// middle joint), so opening the whole hand for the scythe does not count. Needs all 21 landmarks.
+const RING_TIP = 16
+const PINKY_TIP = 20
+const RING_PIP = 14
+const PINKY_PIP = 18
+const THUMB_AWAY = 0.5
+const THUMB_BACK = 0.35
+export function isThumbAway(lm: Point[], away: boolean): boolean {
   if (lm.length < 21) return false
   const handSize = distTrue(lm[WRIST], lm[MIDDLE_MCP])
   if (handSize === 0) return false
-  const center = {
-    x: PALM_CENTER_POINTS.reduce((sum, i) => sum + lm[i].x, 0) / PALM_CENTER_POINTS.length,
-    y: PALM_CENTER_POINTS.reduce((sum, i) => sum + lm[i].y, 0) / PALM_CENTER_POINTS.length,
-    z: 0,
-  }
-  return distTrue(lm[THUMB_TIP], center) / handSize > THUMB_OUT_RATIO
+  const curled = (tip: number, pip: number) => dist(lm[tip], lm[WRIST]) < dist(lm[pip], lm[WRIST])
+  if (!curled(RING_TIP, RING_PIP) || !curled(PINKY_TIP, PINKY_PIP)) return false
+  const gap = Math.min(distTrue(lm[THUMB_TIP], lm[RING_TIP]), distTrue(lm[THUMB_TIP], lm[PINKY_TIP])) / handSize
+  return gap > (away ? THUMB_BACK : THUMB_AWAY)
 }
 
 // Rule-based gesture classifier (HandLandmarker has no built-in gestures).

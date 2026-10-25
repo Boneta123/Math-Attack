@@ -1,9 +1,10 @@
-// The arithmetic operation used when the two held balls merge. Stretching out either thumb moves it up
+// The arithmetic operation used when the two held balls merge. Lifting either thumb off its curled ring
+// and little fingers moves it up
 // the list of operations the game mode allows (see gameMode.ts); the big boxes in the top right only show
 // which one is active. A merge reads
 // "right op left" (the right-hand ball is the one acted on), and the right hand keeps the result.
 import { getGameMode } from './gameMode'
-import { ACTION_BUFFER_MS, isThumbOut, type HandAnchors } from './handTracking'
+import { ACTION_BUFFER_MS, isThumbAway, type HandAnchors } from './handTracking'
 
 export type Operation = '+' | '-' | '*'
 export const OPERATIONS: Operation[] = ['+', '-', '*']
@@ -33,14 +34,18 @@ export function applyOperation(op: Operation, right: number, left: number): numb
   return result >= 1 ? result : null
 }
 
-// Per-frame step: when either hand holds its thumb stretched out for ACTION_BUFFER_MS without a break,
-// move to the operation above (wrapping from the top to the bottom). It fires once per stretch and
-// re-arms when no thumb is out any more. It works while the hand is pinching a ball (the thumb is free
-// then), but a fully open hand is the scythe and does not count. Call it only while a game is running.
+// Per-frame step: when either hand holds its thumb away from its curled ring and little fingers for
+// ACTION_BUFFER_MS without a break, move to the operation above (wrapping from the top to the bottom).
+// It fires once per release and re-arms when the thumb is back on those fingers. It works while the hand
+// is pinching a ball (the thumb is free then), but a fully open hand is the scythe and does not count.
+// Call it only while a game is running.
 let thumbOutSince: number | null = null
 let thumbHandled = false
 export function updateThumbSwitch(hands: HandAnchors[], now = performance.now()) {
-  const out = hands.some((hand) => hand.present && hand.gesture !== 'Open_Palm' && isThumbOut(hand.landmarks))
+  const wasOut = thumbOutSince !== null
+  const out = hands.some(
+    (hand) => hand.present && hand.gesture !== 'Open_Palm' && isThumbAway(hand.landmarks, wasOut),
+  )
   if (!out) {
     thumbOutSince = null
     thumbHandled = false

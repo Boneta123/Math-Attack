@@ -65,7 +65,7 @@ function ExitButton() {
 }
 
 // Large boxes under the Exit button, one per operation the game mode allows, showing the current one.
-// They are not selectable: stretch out either thumb to move to the next one.
+// They are not selectable: lift either thumb off the curled ring and little fingers to move to the next one.
 function ModeDisplay() {
   const selected = useSyncExternalStore(subscribeOperation, getOperation)
   const { operations } = useSyncExternalStore(subscribeGameMode, getGameMode)
@@ -110,7 +110,7 @@ function ModeDisplay() {
       })}
       {operations.length > 1 && (
         <div style={{ font: '13px system-ui, sans-serif', textAlign: 'center', opacity: 0.85, color: '#f1e6c8', textShadow: '0 1px 3px #000' }}>
-          Stretch out a thumb to switch
+          Lift a thumb off your curled fingers to switch
         </div>
       )}
     </div>

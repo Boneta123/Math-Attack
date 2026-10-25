@@ -32,7 +32,7 @@ const STEPS: { title: string; text: string; image?: { src: string; alt: string; 
   },
   {
     title: 'Switch operations',
-    text: 'Stretch out either thumb to move to the next operation your game mode allows (addition, subtraction or multiplication). It works even while you hold a ball. The top-right corner shows the active one.',
+    text: 'From the resting pose, lift either thumb off your curled ring and little fingers to move to the next operation your game mode allows (addition, subtraction or multiplication). Keep those two fingers curled, and touch them with your thumb again before the next switch. It works even while you hold a ball. The top-right corner shows the active one.',
   },
   {
     title: 'Fire the cannon',
