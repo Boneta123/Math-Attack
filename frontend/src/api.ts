@@ -1,5 +1,6 @@
 // Calls to the Express backend (see backend/). Every call can fail, so callers handle the rejection.
 import type { GameModeId } from './gameMode'
+import type { Account } from './player'
 
 export type Entry = { username: string; score: number }
 
@@ -13,10 +14,17 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+// `Authorization: Basic base64(username:password)`, encoded as UTF-8 so any password works.
+const basicAuth = ({ username, password }: Account) =>
+  'Basic ' + btoa(String.fromCharCode(...new TextEncoder().encode(`${username}:${password}`)))
+
+async function request<T>(path: string, body?: unknown, account?: Account): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (account) headers.Authorization = basicAuth(account)
   const response = await fetch(BASE + path, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   const data = await response.json().catch(() => ({}))
@@ -30,13 +38,17 @@ export const checkHealth = () =>
     .then((response) => response.ok)
     .catch(() => false)
 
-export const createPlayer = (username: string) => request<{ username: string }>('/api/players', { username })
+export const createPlayer = (username: string, password: string) =>
+  request<{ username: string }>('/api/players', { username, password })
 
-export const postScore = (mode: GameModeId, username: string, score: number) =>
-  request<{ accepted: boolean }>(`/api/scores/${mode}`, { username, score })
+export const login = (username: string, password: string) =>
+  request<{ username: string }>('/api/login', { username, password })
 
-export const postLeaderboard = (mode: GameModeId, username: string, score: number) =>
-  request<{ accepted: boolean }>(`/api/leaderboard/${mode}`, { username, score })
+export const postScore = (mode: GameModeId, account: Account, score: number) =>
+  request<{ accepted: boolean }>(`/api/scores/${mode}`, { score }, account)
+
+export const postLeaderboard = (mode: GameModeId, account: Account, score: number) =>
+  request<{ accepted: boolean }>(`/api/leaderboard/${mode}`, { score }, account)
 
 export const getLeaderboard = (mode: GameModeId) => request<Entry[]>(`/api/leaderboard/${mode}`)
 
