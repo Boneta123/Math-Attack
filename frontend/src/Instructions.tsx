@@ -1,6 +1,6 @@
 // How-to-play popup opened from the home screen.
 
-const STEPS: { title: string; text: string }[] = [
+const STEPS: { title: string; text: string; image?: { src: string; alt: string; caption: string } }[] = [
   {
     title: 'Get in position',
     text: 'After pressing Play, hold both open hands inside the outlines for 3 seconds. The game starts on its own.',
@@ -8,6 +8,15 @@ const STEPS: { title: string; text: string }[] = [
   {
     title: 'Keep your hands upright',
     text: 'Hold your hands vertically with your fingers pointing up and palms facing the camera, so it can clearly see each finger.',
+  },
+  {
+    title: 'Rest your hands',
+    text: 'The moment the game starts your scythes will be out, because your hands are still held open. Relax your hands into the resting pose below: on each hand, curl your ring and little fingers down and touch them with your thumb, and keep your pointer and middle fingers pointing up. Your gloves come back, and the scythe only returns when you open a hand fully.',
+    image: {
+      src: '/img/resting-hands.png',
+      alt: 'Two gloved hands at rest: the pointer and middle fingers pointing up, the ring and little fingers curled down and touched by the thumb.',
+      caption: 'Resting hands: thumb touching the two curled fingers, pointer and middle fingers up.',
+    },
   },
   {
     title: 'Grab a cannonball',
@@ -96,6 +105,22 @@ export default function Instructions({ onClose }: { onClose: () => void }) {
               <div>
                 <div style={{ fontWeight: 700, marginBottom: 2 }}>{step.title}</div>
                 <div style={{ fontSize: 15, lineHeight: 1.4, opacity: 0.9 }}>{step.text}</div>
+                {step.image && (
+                  <figure style={{ margin: '10px 0 0', padding: 0 }}>
+                    <img
+                      src={step.image.src}
+                      alt={step.image.alt}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        maxWidth: 420,
+                        borderRadius: 10,
+                        background: 'rgba(241, 230, 200, 0.92)',
+                      }}
+                    />
+                    <figcaption style={{ marginTop: 6, fontSize: 13, opacity: 0.75 }}>{step.image.caption}</figcaption>
+                  </figure>
+                )}
               </div>
             </li>
           ))}
