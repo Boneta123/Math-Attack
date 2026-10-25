@@ -3,7 +3,7 @@ import type { GameModeId } from './gameMode'
 
 export type Entry = { username: string; score: number }
 
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+const BASE = import.meta.env.VITE_API_URL ?? 'https://math-attack-9zrl.onrender.com'
 
 export class ApiError extends Error {
   status: number
